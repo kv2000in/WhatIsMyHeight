@@ -37,6 +37,7 @@
                     input {
                         border: 2px solid red;
                         border-radius: 5px;
+						font-size: 16px;
                     }
                     button{
                         background-color: #4CAF50; /* Green */
@@ -90,14 +91,21 @@
 				function onMessage(evt)
 				{
 					console.log("response: " + evt.data + '\n');
-					if (evt.data.slice(0,3) == "CALA"){
-						calibrate= evt.data.slice(5,9);
+					console.log(evt.data.slice(0,4));
+                    console.log(evt.data.slice(5,10));
+                    if (evt.data.slice(0,4) == "CALA"){
+						calibrate= evt.data.slice(5,10);
+                        
 						}
-					else if  (evt.data.slice(0,3) == "DATA"){
-						measurement= evt.data.slice(5,9);
+					else if  (evt.data.slice(0,4) == "DATA"){
+						measurement= evt.data.slice(5,10);
+						var mycval=0;
+						var mymval=0;
+						mycval=parseFloat(calibrate);
+						mymval=parseFloat(measurement);
+						document.getElementById('heightincms').value= mycval-mymval;
+						document.getElementById('heightininches').value= (mycval-mymval)/2.54;
 						}
-						document.getElementById("heightincms").value= calibrate-measurement;
-						document.getElementById("heightininches").value= (calibrate-measurement)/2.54;
 				}
 				function onError(evt)
 				{

@@ -8,8 +8,8 @@
 
 
 
-const char *ssid = "***********";
-const char *password = "***********";
+const char *ssid = "**********";
+const char *password = "*********";
 
 
 
@@ -63,6 +63,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
                     input {
                         border: 2px solid red;
                         border-radius: 5px;
+            font-size: 16px;
                     }
                     button{
                         background-color: #4CAF50; /* Green */
@@ -116,14 +117,21 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
         function onMessage(evt)
         {
           console.log("response: " + evt.data + '\n');
-          if (evt.data.slice(0,3) == "CALA"){
-            calibrate= evt.data.slice(5,9);
+          console.log(evt.data.slice(0,4));
+                    console.log(evt.data.slice(5,10));
+                    if (evt.data.slice(0,4) == "CALA"){
+            calibrate= evt.data.slice(5,10);
+                        
             }
-          else if  (evt.data.slice(0,3) == "DATA"){
-            measurement= evt.data.slice(5,9);
+          else if  (evt.data.slice(0,4) == "DATA"){
+            measurement= evt.data.slice(5,10);
+            var mycval=0;
+            var mymval=0;
+            mycval=parseFloat(calibrate);
+            mymval=parseFloat(measurement);
+            document.getElementById('heightincms').value= mycval-mymval;
+            document.getElementById('heightininches').value= (mycval-mymval)/2.54;
             }
-            document.getElementById("heightincms").value= calibrate-measurement;
-            document.getElementById("heightininches").value= (calibrate-measurement)/2.54;
         }
         function onError(evt)
         {
@@ -175,8 +183,6 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
   
   
 </html>
-
-
 )rawliteral";
 
 
@@ -208,17 +214,13 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       if (strcmp(mystring,"CALIBRATE") == 0)
       {
         doCalibrate();
-         webSocket.broadcastTXT(payload, length);
+         //webSocket.broadcastTXT(payload, length);
       }
       else if (strcmp(mystring,"MEASURE") == 0) 
       {
         doMeasure();
-           webSocket.broadcastTXT(payload, length);
+           //webSocket.broadcastTXT(payload, length);
       } 
-      else if (strcmp(mystring,"STOP") == 0)
-      {
-          webSocket.broadcastTXT(payload, length);
-       }
 
      }
       break;
