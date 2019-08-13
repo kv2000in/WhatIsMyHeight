@@ -8,7 +8,7 @@
 
 
 
-const char *ssid = "**********";
+const char *ssid = "*******";
 const char *password = "*********";
 
 
@@ -22,8 +22,8 @@ WebSocketsServer webSocket = WebSocketsServer(8000);
 int trigPin = 4;    
 int echoPin = 5;    
 long duration, cm, inches; 
-char measurement[10] = {'D','A','T','A','-'};
-char calibration[10] = {'C','A','L','A','-'};
+char measurement[10] = {'M'};
+char calibration[10] = {'C'};
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
 <html>
   <head>
@@ -82,6 +82,12 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
           var boolConnected=false;
           var calibrate=0;
           var measurement=0;
+          var mycval=0;
+          var mymval=0;
+          var myHeightCM=0;
+          var myHeightInches=0;
+          var myHeightFeetF=0;
+          var myHeightFeetIn=0;
           function doConnect()
           {
             if (!(boolConnected)){
@@ -117,20 +123,30 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
         function onMessage(evt)
         {
           console.log("response: " + evt.data + '\n');
-          console.log(evt.data.slice(0,4));
-                    console.log(evt.data.slice(5,10));
-                    if (evt.data.slice(0,4) == "CALA"){
-            calibrate= evt.data.slice(5,10);
-                        
-            }
-          else if  (evt.data.slice(0,4) == "DATA"){
-            measurement= evt.data.slice(5,10);
-            var mycval=0;
-            var mymval=0;
+          console.log(evt.data.slice(0,1));
+                    console.log(evt.data.slice(1));
+                    if (evt.data.slice(0,1) == "C"){
+            calibrate= evt.data.slice(1);
+            mycval=0;
             mycval=parseFloat(calibrate);
+            }
+          else if  (evt.data.slice(0,1) == "M"){
+            measurement= evt.data.slice(1);
+            mymval=0;
+            myHeightCM=0;
+            myHeightInches=0;
+            myHeightFeetF=0;
+            myHeightFeetIn=0;
             mymval=parseFloat(measurement);
-            document.getElementById('heightincms').value= mycval-mymval;
-            document.getElementById('heightininches').value= (mycval-mymval)/2.54;
+            myHeightCM = ((mycval-mymval)/(2*29.1)).toFixed(2);
+            myHeightInches = (parseFloat(myHeightCM)/2.54).toFixed(2);
+            myHeightFeetF = Math.floor(parseFloat(myHeightInches)/12);
+            myHeightFeetIn = Math.ceil(parseFloat(myHeightInches)%12);
+            /* data from ESP is duration of echo   //cm = (duration/2) / 29.1; //inches = (duration/2) / 74;*/
+            document.getElementById('heightincms').value= myHeightCM;
+            document.getElementById('heightininches').value= myHeightInches;
+            document.getElementById('heightinfeetF').value = myHeightFeetF;
+            document.getElementById('heightinfeetIn').value = myHeightFeetIn;
             }
         }
         function onError(evt)
@@ -172,11 +188,15 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
   <body>
     
     
-    <div class = "col-12">
+    <div class = "col-6">
       
-      <button onclick="doSend('CALIBRATE')">Calibrate</button>
+      <button onclick="doSend('ZERO')">Zero</button>
             <button onclick="doSend('MEASURE')">Measure</button><br><br>
-            <label>Your height = </label> <input type='number' id='heightincms'> <strong>CMs , </strong>  <input type='number' id='heightininches'> <strong>inches </strong> 
+            <label>Your height = </label> 
+            <ul><li><input type='number' id='heightincms'> <strong>CMs</strong></li><li><input type='number' id='heightininches'> <strong>inches </strong> </li><li><input type='number' id='heightinfeetF'> <strong>Feet </strong> 
+            <input type='number' id='heightinfeetIn'> <strong>inches </strong> </li></ul>  
+            
+            
     </div>
     
   </body>
@@ -211,7 +231,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
       
      char *mystring = (char *)payload;
       
-      if (strcmp(mystring,"CALIBRATE") == 0)
+      if (strcmp(mystring,"ZERO") == 0)
       {
         doCalibrate();
          //webSocket.broadcastTXT(payload, length);
@@ -263,7 +283,7 @@ void doCalibrate()
 {
  Serial.println("Calibrating");
   hcsr04();
-  itoa( cm, calibration+5, 10 );
+  itoa( duration, calibration+1, 10 );
   webSocket.broadcastTXT(calibration,10);
     
   }
@@ -272,7 +292,7 @@ void doMeasure()
 {
    Serial.println("Measuring");
   hcsr04();
-  itoa( cm, measurement+5, 10 );
+  itoa( duration, measurement+1, 10 );
   webSocket.broadcastTXT(measurement,10);
     
   
@@ -297,14 +317,14 @@ void hcsr04()
   //delayMicroseconds function, on the other hand, does not yield to other tasks, so using it for delays more than 20 milliseconds is not recommended
   delayMicroseconds(10000);
   // convert the time into a distance
-  cm = (duration/2) / 29.1;
+  //cm = (duration/2) / 29.1;
   //inches = (duration/2) / 74; 
   
   //Serial.print(inches);
   //Serial.print("in, ");
-  Serial.print(cm);
-  Serial.print("cm");
-  Serial.println();
+//  Serial.print(cm);
+//  Serial.print("cm");
+//  Serial.println();
   }
 void setup()
 { 
