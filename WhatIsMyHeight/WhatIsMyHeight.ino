@@ -26,182 +26,206 @@ char measurement[10] = {'M'};
 char calibration[10] = {'C'};
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=2.7">
-      
-      <meta  content="text/html; charset=utf-8">
-        <style>
-          * {
-            box-sizing: border-box;
-          }
-        
-        [class*="col-"] {
-          float: left;
-          padding: 15px;
-        }
-        /* For mobile phones: */
-        [class*="col-"] {
-          width: 100%;
-        }
-        @media only screen and (min-width: 1024px) {
-          /* For desktop: */
-          .col-1 {width: 8.33%;}
-          .col-2 {width: 16.66%;}
-          .col-3 {width: 25%;}
-          .col-4 {width: 33.33%;}
-          .col-5 {width: 41.66%;}
-          .col-6 {width: 50%;}
-          .col-7 {width: 58.33%;}
-          .col-8 {width: 66.66%;}
-          .col-9 {width: 75%;}
-          .col-10 {width: 83.33%;}
-          .col-11 {width: 91.66%;}
-          .col-12 {width: 100%;}
-        }
-        
-        
-                    input {
-                        border: 2px solid red;
-                        border-radius: 5px;
-            font-size: 16px;
-                    }
-                    button{
-                        background-color: #4CAF50; /* Green */
-                        border: none;
-                        color: white;
-                        padding: 15px 32px;
-                        text-align: center;
-                        text-decoration: none;
-                        display: inline-block;
-                        font-size: 16px;
-                    }
-        
-          </style>
-        <script language="javascript" type="text/javascript">
-          
-          var boolConnected=false;
-          var calibrate=0;
-          var measurement=0;
-          var mycval=0;
-          var mymval=0;
-          var myHeightCM=0;
-          var myHeightInches=0;
-          var myHeightFeetF=0;
-          var myHeightFeetIn=0;
-          function doConnect()
-          {
-            if (!(boolConnected)){
-              /*websocket = new WebSocket(document.myform.url.value);*/
-              /*
-               websocket = new WebSocket('ws://192.168.1.106:8000/');
-               */
-              
-              
-              websocket = new WebSocket('ws://' + window.location.hostname + ':8000/'); 
-              boolConnected=true;
-              websocket.onopen = function(evt) { onOpen(evt) };
-              websocket.onclose = function(evt) { onClose(evt) };
-              websocket.onmessage = function(evt) { onMessage(evt) };
-              websocket.onerror = function(evt) { onError(evt) };
-            }
-            
-          }
-        function onOpen(evt)
-        {
-          console.log("connected\n");
-          
-        }
-        
-        function onClose(evt)
-        {
-          console.log("disconnected\n");
-          /* if server disconnected - change the color to red*/
-          
-          boolConnected=false;
-        }
-        
-        function onMessage(evt)
-        {
-          console.log("response: " + evt.data + '\n');
-          console.log(evt.data.slice(0,1));
-                    console.log(evt.data.slice(1));
-                    if (evt.data.slice(0,1) == "C"){
-            calibrate= evt.data.slice(1);
-            mycval=0;
-            mycval=parseFloat(calibrate);
-            }
-          else if  (evt.data.slice(0,1) == "M"){
-            measurement= evt.data.slice(1);
-            mymval=0;
-            myHeightCM=0;
-            myHeightInches=0;
-            myHeightFeetF=0;
-            myHeightFeetIn=0;
-            mymval=parseFloat(measurement);
-            myHeightCM = ((mycval-mymval)/(2*29.1)).toFixed(2);
-            myHeightInches = (parseFloat(myHeightCM)/2.54).toFixed(2);
-            myHeightFeetF = Math.floor(parseFloat(myHeightInches)/12);
-            myHeightFeetIn = Math.ceil(parseFloat(myHeightInches)%12);
-            /* data from ESP is duration of echo   //cm = (duration/2) / 29.1; //inches = (duration/2) / 74;*/
-            document.getElementById('heightincms').value= myHeightCM;
-            document.getElementById('heightininches').value= myHeightInches;
-            document.getElementById('heightinfeetF').value = myHeightFeetF;
-            document.getElementById('heightinfeetIn').value = myHeightFeetIn;
-            }
-        }
-        function onError(evt)
-        {
-          console.log('error: ' + evt.data + '\n');
-          websocket.close();
-        }
-        function doSend(message)
-        {
-          console.log("sent: " + message + '\n');
-          websocket.send(message);
-        }
-        function closeWS()
-        {
-        /* Probable bug in arduino websocket - hangs if not closed properly, specially by a phone browser entering a powersaving mode*/
-          websocket.close();
-          boolConnected=false;
-        }
-        /*    On android - when page loads - focus event isn't fired so websocket doesn't connect*/                     
-        window.addEventListener("focus",doConnect, false);
-        window.addEventListener("blur",closeWS, false);
-        window.addEventListener('load', function() {
-        foo(true); 
-        /*After page loading blur doesn't fire until focus has fired at least once*/
-        },{once:true}, false);
-        function foo(bool) 
-        {
-          if (bool)
-          {
-            doConnect();
-          } else 
-          {
-          websocket.close();    
-          }
-        }
-        </script>
-        
-  <title>What is my Height</title></head>
-  <body>
-    
-    
-    <div class = "col-6">
-      
-      <button onclick="doSend('ZERO')">Zero</button>
-            <button onclick="doSend('MEASURE')">Measure</button><br><br>
-            <label>Your height = </label> 
-            <ul><li><input type='number' id='heightincms'> <strong>CMs</strong></li><li><input type='number' id='heightininches'> <strong>inches </strong> </li><li><input type='number' id='heightinfeetF'> <strong>Feet </strong> 
-            <input type='number' id='heightinfeetIn'> <strong>inches </strong> </li></ul>  
-            
-            
-    </div>
-    
-  </body>
-  
-  
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=2.7">
+
+<meta  content="text/html; charset=utf-8">
+<style>
+* {
+box-sizing: border-box;
+}
+
+[class*="col-"] {
+float: left;
+padding: 15px;
+}
+/* For mobile phones: */
+[class*="col-"] {
+width: 100%;
+}
+@media only screen and (min-width: 1024px) {
+/* For desktop: */
+.col-1 {width: 8.33%;}
+.col-2 {width: 16.66%;}
+.col-3 {width: 25%;}
+.col-4 {width: 33.33%;}
+.col-5 {width: 41.66%;}
+.col-6 {width: 50%;}
+.col-7 {width: 58.33%;}
+.col-8 {width: 66.66%;}
+.col-9 {width: 75%;}
+.col-10 {width: 83.33%;}
+.col-11 {width: 91.66%;}
+.col-12 {width: 100%;}
+}
+
+
+input {
+border: 2px solid red;
+border-radius: 5px;
+font-size: 16px;
+}
+.button{
+background-color: #4CAF50; /* Green */
+border: none;
+color: white;
+padding: 15px 32px;
+text-align: center;
+text-decoration: none;
+display: inline-block;
+font-size: 16px;
+border-radius: 10px;
+}
+.button:hover {
+box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
+}
+.button:active {
+background-color: #3e8e41;
+box-shadow: 0 5px #666;
+transform: translateY(4px);
+}
+.inactive{
+opacity: 0.6;
+cursor: not-allowed;
+}
+</style>
+<script language="javascript" type="text/javascript">
+
+var boolConnected=false;
+var calibrate=0;
+var measurement=0;
+var mycval=0;
+var mymval=0;
+var myHeightCM=0;
+var myHeightInches=0;
+var myHeightFeetF=0;
+var myHeightFeetIn=0;
+function doConnect()
+{
+if (!(boolConnected)){
+/*websocket = new WebSocket(document.myform.url.value);*/
+/*
+websocket = new WebSocket('ws://192.168.1.106:8000/');
+*/
+
+
+websocket = new WebSocket('ws://' + window.location.hostname + ':8000/'); 
+boolConnected=true;
+websocket.onopen = function(evt) { onOpen(evt) };
+websocket.onclose = function(evt) { onClose(evt) };
+websocket.onmessage = function(evt) { onMessage(evt) };
+websocket.onerror = function(evt) { onError(evt) };
+}
+
+}
+function onOpen(evt)
+{
+console.log("connected\n");
+
+}
+
+function onClose(evt)
+{
+console.log("disconnected\n");
+/* if server disconnected - change the color to red*/
+
+boolConnected=false;
+}
+
+function onMessage(evt)
+{
+mycval=0;
+mymval=0;
+myHeightCM=0;
+myHeightInches=0;
+myHeightFeetF=0;
+myHeightFeetIn=0;
+console.log("response: " + evt.data + '\n');
+console.log(evt.data.slice(0,1));
+console.log(evt.data.slice(1));
+if (evt.data.slice(0,1) == "C"){
+calibrate= evt.data.slice(1);
+mycval=parseFloat(calibrate);
+myHeightCM= (mycval/(2*29.1)).toFixed(2);
+document.getElementById("btnZero").className="button";
+}
+else if  (evt.data.slice(0,1) == "M"){
+measurement= evt.data.slice(1);
+mymval=parseFloat(measurement);
+myHeightCM = ((mycval-mymval)/(2*29.1)).toFixed(2);
+myHeightInches = (parseFloat(myHeightCM)/2.54).toFixed(2);
+myHeightFeetF = Math.floor(parseFloat(myHeightInches)/12);
+myHeightFeetIn = Math.ceil(parseFloat(myHeightInches)%12);
+/* data from ESP is duration of echo   //cm = (duration/2) / 29.1; //inches = (duration/2) / 74;*/
+document.getElementById("btnMeasure").className="button";
+}
+document.getElementById('heightincms').value= myHeightCM;
+document.getElementById('heightininches').value= myHeightInches;
+document.getElementById('heightinfeetF').value = myHeightFeetF;
+document.getElementById('heightinfeetIn').value = myHeightFeetIn;
+
+}
+function onError(evt)
+{
+console.log('error: ' + evt.data + '\n');
+websocket.close();
+}
+function doSend(message)
+{
+console.log("sent: " + message + '\n');
+websocket.send(message);
+}
+function closeWS()
+{
+/* Probable bug in arduino websocket - hangs if not closed properly, specially by a phone browser entering a powersaving mode*/
+websocket.close();
+boolConnected=false;
+}
+/*    On android - when page loads - focus event isn't fired so websocket doesn't connect*/										  
+window.addEventListener("focus",doConnect, false);
+window.addEventListener("blur",closeWS, false);
+window.addEventListener('load', function() {
+foo(true); 
+/*After page loading blur doesn't fire until focus has fired at least once*/
+},{once:true}, false);
+function foo(bool) 
+{
+if (bool)
+{
+doConnect();
+} else 
+{
+websocket.close();    
+}
+}
+function sendZero(){
+doSend('ZERO');
+document.getElementById("btnZero").className="inactive";
+}
+function sendMeasure(){
+doSend('MEASURE');
+document.getElementById("btnMeasure").className="inactive";
+}
+</script>
+
+<title>What is my Height</title></head>
+<body>
+
+
+<div class = "col-6">
+
+<button id = 'btnZero' class = "button" onclick='sendZero()'>Zero</button>
+<button id = 'btnMeasure' class = "button" onclick='sendMeasure()'>Measure</button><br><br>
+<label>Your height = </label> 
+<ul><li><input type='number' id='heightincms'> <strong>CMs</strong></li><li><input type='number' id='heightininches'> <strong>inches </strong> </li><li><input type='number' id='heightinfeetF'> <strong>Feet </strong> 
+<input type='number' id='heightinfeetIn'> <strong>inches </strong> </li></ul>  
+
+
+</div>
+
+</body>
+
+
 </html>
 )rawliteral";
 

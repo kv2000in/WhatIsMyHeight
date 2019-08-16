@@ -39,7 +39,7 @@
                         border-radius: 5px;
 						font-size: 16px;
                     }
-                    button{
+                    .button{
                         background-color: #4CAF50; /* Green */
                         border: none;
                         color: white;
@@ -48,8 +48,20 @@
                         text-decoration: none;
                         display: inline-block;
                         font-size: 16px;
+                        border-radius: 10px;
                     }
-				
+				    .button:hover {
+                        box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
+                    }
+                    .button:active {
+                        background-color: #3e8e41;
+                        box-shadow: 0 5px #666;
+                        transform: translateY(4px);
+                    }
+                    .inactive{
+                        opacity: 0.6;
+                        cursor: not-allowed;
+                    }
 					</style>
 				<script language="javascript" type="text/javascript">
 					
@@ -96,33 +108,37 @@
 				
 				function onMessage(evt)
 				{
-					console.log("response: " + evt.data + '\n');
+				    mycval=0;
+                    mymval=0;
+				    myHeightCM=0;
+				    myHeightInches=0;
+				    myHeightFeetF=0;
+				    myHeightFeetIn=0;
+                    console.log("response: " + evt.data + '\n');
 					console.log(evt.data.slice(0,1));
                     console.log(evt.data.slice(1));
                     if (evt.data.slice(0,1) == "C"){
 						calibrate= evt.data.slice(1);
-						mycval=0;
 						mycval=parseFloat(calibrate);
+                        myHeightCM= (mycval/(2*29.1)).toFixed(2);
+                        document.getElementById("btnZero").className="button";
 						}
 					else if  (evt.data.slice(0,1) == "M"){
 						measurement= evt.data.slice(1);
-						mymval=0;
-						myHeightCM=0;
-						myHeightInches=0;
-						myHeightFeetF=0;
-						myHeightFeetIn=0;
 						mymval=parseFloat(measurement);
 						myHeightCM = ((mycval-mymval)/(2*29.1)).toFixed(2);
 						myHeightInches = (parseFloat(myHeightCM)/2.54).toFixed(2);
 						myHeightFeetF = Math.floor(parseFloat(myHeightInches)/12);
 						myHeightFeetIn = Math.ceil(parseFloat(myHeightInches)%12);
 						/* data from ESP is duration of echo   //cm = (duration/2) / 29.1; //inches = (duration/2) / 74;*/
-						document.getElementById('heightincms').value= myHeightCM;
+                        document.getElementById("btnMeasure").className="button";
+						}
+				        document.getElementById('heightincms').value= myHeightCM;
 						document.getElementById('heightininches').value= myHeightInches;
 						document.getElementById('heightinfeetF').value = myHeightFeetF;
 						document.getElementById('heightinfeetIn').value = myHeightFeetIn;
-						}
-				}
+                
+                }
 				function onError(evt)
 				{
 					console.log('error: ' + evt.data + '\n');
@@ -156,6 +172,14 @@
 					websocket.close();    
 					}
 				}
+                function sendZero(){
+                    doSend('ZERO');
+                    document.getElementById("btnZero").className="inactive";
+                }
+                function sendMeasure(){
+                    doSend('MEASURE');
+                    document.getElementById("btnMeasure").className="inactive";
+                }
 				</script>
 				
 	<title>What is my Height</title></head>
@@ -164,8 +188,8 @@
 		
 		<div class = "col-6">
 			
-			<button onclick="doSend('ZERO')">Zero</button>
-            <button onclick="doSend('MEASURE')">Measure</button><br><br>
+			<button id = 'btnZero' class = "button" onclick='sendZero()'>Zero</button>
+            <button id = 'btnMeasure' class = "button" onclick='sendMeasure()'>Measure</button><br><br>
             <label>Your height = </label> 
             <ul><li><input type='number' id='heightincms'> <strong>CMs</strong></li><li><input type='number' id='heightininches'> <strong>inches </strong> </li><li><input type='number' id='heightinfeetF'> <strong>Feet </strong> 
             <input type='number' id='heightinfeetIn'> <strong>inches </strong> </li></ul>  
