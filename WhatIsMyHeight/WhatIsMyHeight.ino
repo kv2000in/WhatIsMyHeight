@@ -8,8 +8,8 @@
 
 
 
-const char *ssid = "*******";
-const char *password = "*********";
+const char *ssid = "********";
+const char *password = "********";
 
 
 
@@ -27,7 +27,7 @@ char calibration[10] = {'C'};
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=2.7">
+<meta name="viewport" content="width=device-width">
 
 <meta  content="text/html; charset=utf-8">
 <style>
@@ -61,9 +61,10 @@ width: 100%;
 
 
 input {
-border: 2px solid red;
+border: 2px solid #0008ff;
 border-radius: 5px;
 font-size: 16px;
+width: auto;
 }
 .button{
 background-color: #4CAF50; /* Green */
@@ -87,7 +88,23 @@ transform: translateY(4px);
 .inactive{
 opacity: 0.6;
 cursor: not-allowed;
+background-color: #ed4f4f; /* Red */
+border: none;
+color: white;
+padding: 15px 32px;
+text-align: center;
+text-decoration: none;
+display: inline-block;
+font-size: 16px;
+border-radius: 10px;
 }
+li{
+margin:10px;
+}
+ul{
+list-style-type: none;
+}
+
 </style>
 <script language="javascript" type="text/javascript">
 
@@ -134,8 +151,6 @@ boolConnected=false;
 
 function onMessage(evt)
 {
-mycval=0;
-mymval=0;
 myHeightCM=0;
 myHeightInches=0;
 myHeightFeetF=0;
@@ -215,7 +230,7 @@ document.getElementById("btnMeasure").className="inactive";
 <div class = "col-6">
 
 <button id = 'btnZero' class = "button" onclick='sendZero()'>Zero</button>
-<button id = 'btnMeasure' class = "button" onclick='sendMeasure()'>Measure</button><br><br>
+<button id = 'btnMeasure' class = "button" onclick='sendMeasure()' style = "float:right;">Measure</button><br><br>
 <label>Your height = </label> 
 <ul><li><input type='number' id='heightincms'> <strong>CMs</strong></li><li><input type='number' id='heightininches'> <strong>inches </strong> </li><li><input type='number' id='heightinfeetF'> <strong>Feet </strong> 
 <input type='number' id='heightinfeetIn'> <strong>inches </strong> </li></ul>  
