@@ -4,12 +4,15 @@
 #include <Hash.h>
 #include <ESP8266WebServer.h>
 #include <string.h>
+
+#include <ArduinoOTA.h> //Error : ArduinoOTA' does not name a type.  Solution: The library has a nonstandard (for 1.0.3) directory structure: you should move the .cpp and .h files 
+
 #define MAX_STRING_LEN  32
 
 
 
-const char *ssid = "********";
-const char *password = "********";
+const char *ssid = "****";
+const char *password = "****";
 
 
 
@@ -414,8 +417,36 @@ void setup()
 
 
 
-}
+/* ************OTA********************* */
+    // Port defaults to 8266
+  // ArduinoOTA.setPort(8266);
 
+  // Hostname defaults to esp8266-[ChipID]
+  // ArduinoOTA.setHostname("myesp8266");
+
+  // No authentication by default
+  // ArduinoOTA.setPassword((const char *)"123");
+   
+   ArduinoOTA.onStart([]() {
+    Serial1.println("Start");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial1.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial1.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial1.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial1.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial1.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial1.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial1.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial1.println("End Failed");
+  });
+  ArduinoOTA.begin();
+/****************************************************/  
+}
 void loop()
 {
   webSocket.loop();
