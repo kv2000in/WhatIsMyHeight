@@ -4,15 +4,14 @@
 #include <Hash.h>
 #include <ESP8266WebServer.h>
 #include <string.h>
-
-#include <ArduinoOTA.h> //Error : ArduinoOTA' does not name a type.  Solution: The library has a nonstandard (for 1.0.3) directory structure: you should move the .cpp and .h files 
+#include <ArduinoOTA.h> 
 
 #define MAX_STRING_LEN  32
 
+//ESP8266 Standalone chips (?ESP12-E/F) - DIO 40 Mhz Flash, 80 MHz CPU, Flash Size 4M (1M SPIFFS)
 
-
-const char *ssid = "****";
-const char *password = "****";
+const char *ssid = "*****";
+const char *password = "*****";
 
 
 
@@ -389,7 +388,7 @@ void setup()
     Serial.flush();
     delay(1000);
   }
-
+  WiFi.mode(WIFI_STA);
   WiFiMulti.addAP(ssid, password);
 
   while(WiFiMulti.run() != WL_CONNECTED) {
@@ -445,7 +444,9 @@ void setup()
     else if (error == OTA_END_ERROR) Serial1.println("End Failed");
   });
   ArduinoOTA.begin();
-/****************************************************/  
+/****************************************************/ 
+
+ WiFi.printDiag(Serial);
 }
 void loop()
 {
