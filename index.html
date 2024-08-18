@@ -1,218 +1,731 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html>
 	<head>
-		<meta name="viewport" content="width=device-width">
-			
-			<meta  content="text/html; charset=utf-8">
-				<style>
-					* {
-						box-sizing: border-box;
-					}
-				
-				[class*="col-"] {
-					float: left;
-					padding: 15px;
+		<meta name = "viewport" content = "width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0">
+			<title>Transducer Height Project</title>
+			<style>
+				body {
+					background-color: #808080;
+					font-family: Arial, Helvetica, sans-serif;
+					color: #000000;
 				}
-				/* For mobile phones: */
-				[class*="col-"] {
-					width: 100%;
-				}
-				@media only screen and (min-width: 1024px) {
-					/* For desktop: */
-					.col-1 {width: 8.33%;}
-					.col-2 {width: 16.66%;}
-					.col-3 {width: 25%;}
-					.col-4 {width: 33.33%;}
-					.col-5 {width: 41.66%;}
-					.col-6 {width: 50%;}
-					.col-7 {width: 58.33%;}
-					.col-8 {width: 66.66%;}
-					.col-9 {width: 75%;}
-					.col-10 {width: 83.33%;}
-					.col-11 {width: 91.66%;}
-					.col-12 {width: 100%;}
-				}
+			</style>
+			<style>
 				
+				td{
+					border: groove;
+				}
+			.td-hidden{
+				display: none;
+			}
+			.td-actions{
+				visibility: visible;
+			}
+			</style>
+			<script>
+				/*Will be obsolete once the code for requesting these values from the server are written */
+				var zerorawvaluedict={}; 
+				/*
+				 zerorawvaluedict {a020a60a86ce: Array(2)} a020a60a86ce: Array(2) 0: "-811493" 1: "2022-4-12 21:33:49"
+				 */
+			var calibrationfactordict={};
+			var mycurrentrawvalues={};
+			var mymsgtosend;
+			var websock;
+			var boolClientactive;
+			var boolHasZeroBeenDone = false;
+				// Initialize the dictionary object to store readings
+				const myReadings = {};
 				
-                    input {
-                        border: 2px solid #0008ff;
-                        border-radius: 5px;
-						font-size: 16px;
-                        width: auto;
-                    }
-                    .button{
-                        background-color: #4CAF50; /* Green */
-                        border: none;
-                        color: white;
-                        padding: 15px 32px;
-                        text-align: center;
-                        text-decoration: none;
-                        display: inline-block;
-                        font-size: 16px;
-                        border-radius: 10px;
-                    }
-				    .button:hover {
-                        box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
-                    }
-                    .button:active {
-                        background-color: #3e8e41;
-                        box-shadow: 0 5px #666;
-                        transform: translateY(4px);
-                    }
-                    .inactive{
-                        opacity: 0.6;
-                        cursor: not-allowed;
-						background-color: #ed4f4f; /* Red */
-						border: none;
-						color: white;
-						padding: 15px 32px;
-						text-align: center;
-						text-decoration: none;
-						display: inline-block;
-						font-size: 16px;
-						border-radius: 10px;
-                    }
-                    li{
-                        margin:10px;
-                    }
-                    ul{
-                        list-style-type: none;
-                    }
-                    
-					</style>
-				<script language="javascript" type="text/javascript">
+				function start() {
 					
-					var boolConnected=false;
-					var calibrate=0;
-					var measurement=0;
-					var mycval=0;
-					var mymval=0;
-					var myHeightCM=0;
-					var myHeightInches=0;
-					var myHeightFeetF=0;
-					var myHeightFeetIn=0;
-					function doConnect()
-					{
-						if (!(boolConnected)){
-							/*websocket = new WebSocket(document.myform.url.value);*/
-							/*
-							 websocket = new WebSocket('ws://192.168.1.106:8000/');
+					/*websock = new WebSocket('ws://' + window.location.hostname + '/ws'); Change to this once done debugging */
+					websock = new WebSocket('ws://192.168.4.1/ws');
+					websock.binaryType = "arraybuffer"; /*need to do this when dealing with binary data.*/
+					websock.onopen = function(evt) { console.log('websock open');
+						
+						
+						
+					};
+					websock.onclose = function(evt) { console.log('websock close'); };
+					websock.onerror = function(evt) { console.log(evt); };
+					websock.onmessage = function(evt) {
+						
+						if(evt.data instanceof ArrayBuffer) {
+							/*binary frame
+							 const view = new DataView(evt.data);
+							 console.log(view.getInt32(0));
 							 */
+							handleserverbinarydata(evt.data);
+						} else {
+							/* text frame*/
+							console.log("Text-Data");
+							/*  Need to send zero/tare values, calibration factors for all known mac addresses stored on the server.
+							 Data from server Z#macaddr|zerorawvalue|timestamp
+							 C#macaddr|calibrationfactor|timestamp*/
+							handleservertextdata(evt.data);
+							/*   Data to server => Z#macaddr|zerorawvalue|timestamp
+							 C#macaddr|calibrationfactor|timestamp */
 							
-							
-							websocket = new WebSocket('ws://' + window.location.hostname + ':8000/'); 
-							boolConnected=true;
-							websocket.onopen = function(evt) { onOpen(evt) };
-							websocket.onclose = function(evt) { onClose(evt) };
-							websocket.onmessage = function(evt) { onMessage(evt) };
-							websocket.onerror = function(evt) { onError(evt) };
 						}
 						
-					}
-				function onOpen(evt)
-				{
-					console.log("connected\n");
+					};
+					
 					
 				}
-				
-				function onClose(evt)
-				{
-					console.log("disconnected\n");
-					/* if server disconnected - change the color to red*/
-					
-					boolConnected=false;
-				}
-				
-				function onMessage(evt)
-				{
-				    myHeightCM=0;
-				    myHeightInches=0;
-				    myHeightFeetF=0;
-				    myHeightFeetIn=0;
-                    console.log("response: " + evt.data + '\n');
-					console.log(evt.data.slice(0,1));
-                    console.log(evt.data.slice(1));
-                    if (evt.data.slice(0,1) == "C"){
-						calibrate= evt.data.slice(1);
-						mycval=parseFloat(calibrate);
-                        myHeightCM= (mycval/(2*29.1)).toFixed(2);
-                        document.getElementById("btnZero").className="button";
-						}
-					else if  (evt.data.slice(0,1) == "M"){
-						measurement= evt.data.slice(1);
-						mymval=parseFloat(measurement);
-						myHeightCM = ((mycval-mymval)/(2*29.1)).toFixed(2);
-						myHeightInches = (parseFloat(myHeightCM)/2.54).toFixed(2);
-						myHeightFeetF = Math.floor(parseFloat(myHeightInches)/12);
-						myHeightFeetIn = Math.ceil(parseFloat(myHeightInches)%12);
-						/* data from ESP is duration of echo   //cm = (duration/2) / 29.1; //inches = (duration/2) / 74;*/
-                        document.getElementById("btnMeasure").className="button";
-						}
-				        document.getElementById('heightincms').value= myHeightCM;
-						document.getElementById('heightininches').value= myHeightInches;
-						document.getElementById('heightinfeetF').value = myHeightFeetF;
-						document.getElementById('heightinfeetIn').value = myHeightFeetIn;
-                
-                }
-				function onError(evt)
-				{
-					console.log('error: ' + evt.data + '\n');
-					websocket.close();
-				}
-				function doSend(message)
-				{
-					console.log("sent: " + message + '\n');
-					websocket.send(message);
-				}
-				function closeWS()
-				{
-				/* Probable bug in arduino websocket - hangs if not closed properly, specially by a phone browser entering a powersaving mode*/
-					websocket.close();
-					boolConnected=false;
-				}
-				/*    On android - when page loads - focus event isn't fired so websocket doesn't connect*/										  
-				window.addEventListener("focus",doConnect, false);
-				window.addEventListener("blur",closeWS, false);
-				window.addEventListener('load', function() {
-				foo(true); 
-				/*After page loading blur doesn't fire until focus has fired at least once*/
-				},{once:true}, false);
-				function foo(bool) 
-				{
-					if (bool)
-					{
-						doConnect();
-					} else 
-					{
-					websocket.close();    
-					}
-				}
-                function sendZero(){
-                    doSend('ZERO');
-                    document.getElementById("btnZero").className="inactive";
-                }
-                function sendMeasure(){
-                    doSend('MEASURE');
-                    document.getElementById("btnMeasure").className="inactive";
-                }
-				</script>
-				
-	<title>What is my Height</title></head>
-	<body>
-		
-		
-		<div class = "col-6">
 			
-			<button id = 'btnZero' class = "button" onclick='sendZero()'>Zero</button>
-            <button id = 'btnMeasure' class = "button" onclick='sendMeasure()' style = "float:right;">Measure</button><br><br>
-            <label>Your height = </label> 
-            <ul><li><input type='number' id='heightincms'> <strong>CMs</strong></li><li><input type='number' id='heightininches'> <strong>inches </strong> </li><li><input type='number' id='heightinfeetF'> <strong>Feet </strong> 
-            <input type='number' id='heightinfeetIn'> <strong>inches </strong> </li></ul>  
-            
-            
-		</div>
+			
+			function doSend(message)
+			{
+				console.log("sent: " + message + '\n');
+				/* writeToScreen("sent: " + message + '\n'); */
+				websock.send(message);
+			}
+			
+			
+			
+			
+			function getcurrentUTCepochseconds(){
+				
+					// Get the current date and time
+					const now = new Date();
+					
+						// Get the UTC epoch time in milliseconds
+						const utcEpochTimeMillis = now.getTime();
+						
+							// Convert milliseconds to seconds (Unix time is in seconds)
+							const utcEpochTimeSeconds = Math.floor(utcEpochTimeMillis / 1000);
+							
+								//console.log(utcEpochTimeSeconds);
+								return utcEpochTimeSeconds;
+			}
+			
+			
+			
+			
+			
+			
+				// Function to convert UTC epoch time in seconds to local time string
+				function convertEpochSecondsToLocalTime(epochSeconds) {
+						// Create a new Date object from the epoch time in milliseconds
+						const date = new Date(epochSeconds * 1000);
+						
+							// Get the components of the date
+							const year = date.getFullYear();
+							const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+							const day = String(date.getDate()).padStart(2, '0');
+							const hours = String(date.getHours()).padStart(2, '0');
+							const minutes = String(date.getMinutes()).padStart(2, '0');
+							const seconds = String(date.getSeconds()).padStart(2, '0');
+							
+								// Format the date as yyyy-mm-dd hh:mm:ss
+								const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+								
+								return formattedDate;  
+				}
+			
+			function getCurrentLocalTime() {
+				const now = new Date();
+				
+				const year = now.getFullYear();
+				const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-indexed
+				const day = String(now.getDate()).padStart(2, '0');
+				
+				const hours = String(now.getHours()).padStart(2, '0');
+				const minutes = String(now.getMinutes()).padStart(2, '0');
+				const seconds = String(now.getSeconds()).padStart(2, '0');
+				
+				return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+			}
+			
+			function isArrayEmptyOrNull(arr) {
+				return arr == null || (Array.isArray(arr) && arr.length === 0);
+			}            
+			
+			function handleservertextdata(servertextdata){
+				/*Z#macaddr|zerorawvalue|timestamp */
+				var myservertextdatasliced = servertextdata.split("#");
+				switch(myservertextdatasliced[0]){
+					case 'Z':
+						//zerorawvaluedict[myservertextdatasliced[1].split("|")[0]]=[myservertextdatasliced[1].split("|")[1],myservertextdatasliced[1].split("|")[2]];
+						case 'C':
+							//calibrationfactordict[myservertextdatasliced[1].split("|")[0]]=[myservertextdatasliced[1].split("|")[1],myservertextdatasliced[1].split("|")[2]];
+							default:
+								//console.log(myservertextdatasliced[0]);
+				}
+			}
+			
+			function requeststoredval(macaddr,char){
+				const macaddrbuff = macAddressToArrayBuffer(macaddr); 
+				const emptybuff = new ArrayBuffer(6);
+				new Uint8Array(emptybuff).set([0,0,0,0,0,0]);
+				const singlecharbuff = charToArrayBuffer(char);
+				const timestampbuff = signedIntToArrayBuffer(getcurrentUTCepochseconds(),4);
+					//Send binary frame to server
+					websock.send(memcopyArrayBuffers([macaddrbuff,emptybuff,singlecharbuff,timestampbuff],24));
+					
+			}
+			
+			function handleserverbinarydata(serverbinarydata){
+				/* First 6 bytes = MAC Address , 
+                then 2 bytes of distance, 
+                2 bytes of temp 
+                and 2 bytes of batteryvoltage = total 12 bytes. 
+                Padded total 16 bytes. */
+					console.log(serverbinarydata);
+					var mybinarydataarray= new Uint8Array(serverbinarydata);
+					var mysendermacaddress = mybinarydataarray.slice(0,6);
+					var mysendermacaddressclean = buf2hex(mysendermacaddress);
+						//var myscalefloatvaluebytes = serverbinarydata.slice(6,10); 
+						var mybatteryvoltagebytes = serverbinarydata.slice(10,12);
+							//var myfloatview = new DataView(myscalefloatvaluebytes);
+							var myintview = new DataView(mybatteryvoltagebytes);
+								//var myscalefloatvalue = myfloatview.getFloat32(0,true); /* Signed 32 bit float, little endian. https:/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView/getFloat32*/
+								var mybatteryvoltage = myintview.getInt16(0,true);
+								var myscalefloatvalue=ArrayBufferTofloat(serverbinarydata.slice(6,10));
+									//(1) Check if the optional byte is set to Z or C
+									var myoptionalbyte = new DataView(serverbinarydata.slice(12,13)).getUint8();
+									switch(String.fromCharCode(myoptionalbyte)){
+										case 'Z':
+											//So this data frame contains Zero data
+											handleZerodata(mysendermacaddressclean,myscalefloatvalue,serverbinarydata.slice(13,17),serverbinarydata.slice(17,24),);
+											return;
+											case 'C':
+												//So this data frame contains Calibration data
+												handleCalibrationdata(mysendermacaddressclean,myscalefloatvalue,serverbinarydata.slice(13,17));
+												return;
+												default:
+													//if zero and calib values for this node are not yet received - request it from the server
+													
+													if (isArrayEmptyOrNull(calibrationfactordict[mysendermacaddressclean]))  {
+															//while waiting for this info to be available - server may or may not have it - set the current calib value to one
+															calibrationfactordict[mysendermacaddressclean]=[1,getCurrentLocalTime()];
+															
+															
+															requeststoredval(mysendermacaddressclean,'c');
+													} 
+													if (isArrayEmptyOrNull(zerorawvaluedict[mysendermacaddressclean])) {
+															//while waiting for this info to be available - server may or may not have it - set the current raw value to zero
+															zerorawvaluedict[mysendermacaddressclean]=[0,getCurrentLocalTime()];
+															requeststoredval(mysendermacaddressclean,'z');
+															
+													}
+													
+													
+													
+													
+													/*call the data handler routine*/
+													handlecleanedupdata(mysendermacaddressclean,myscalefloatvalue,mybatteryvoltage,getCurrentLocalTime());
+													
+									}
+			}
+			/* https:/stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex*/
+			
+			function buf2hex(buffer) { /* buffer is an ArrayBuffer*/
+				return [...new Uint8Array(buffer)]
+				.map(x => x.toString(16).padStart(2, '0'))
+				.join('');
+			}
+			
+			
+			
+			
+			
+			
+			function handleZerodata(macaddr,zerorawreading,binarytimestamp,commonName){
+				
+				
+				zerorawvaluedict[macaddr]=[zerorawreading,convertEpochSecondsToLocalTime(ArrayBufferTofloat(binarytimestamp))];
+				
+					//handle name
+					let decoder = new TextDecoder('utf-8');
+					document.getElementById("nameinput"+macaddr).value = decoder.decode(commonName);
+					updateReading(macaddr);
+					
+			}
+			function handleCalibrationdata(macaddr,calibrationfactor,binarytimestamp){
+				calibrationfactordict[macaddr]=[calibrationfactor,convertEpochSecondsToLocalTime(ArrayBufferTofloat(binarytimestamp))];
+				updateReading(macaddr);
+			}
+			
+				// Function to update the HTML element
+				function updateReading(macaddr) {
+					let rawreading = mycurrentrawvalues[macaddr][0];
+					let zeroRawValue = zerorawvaluedict[macaddr][0];
+					let calibrationFactor = calibrationfactordict[macaddr][0];
+					
+					let calculatedValue = Math.round(((rawreading - zeroRawValue) / 100) * calibrationFactor);
+					
+					document.getElementById("reading" + macaddr).innerHTML = calculatedValue;
+				}
+			function handlecleanedupdata(macaddr,rawreading,battery,mytime){
+				/*create or update an entry in to the rawvalues dict and add the current values*/
+				mycurrentrawvalues[macaddr]=[rawreading,battery,mytime];
+				if (!myReadings[macaddr]) {
+					myReadings[macaddr] = [];
+				}
+				var mydatalist = document.getElementById("availablesensors");
+				var n;
+				var alreadypresent="false";
+				for (n=0;n<mydatalist.options.length;n++)
+				{
+					if (macaddr == mydatalist.options[n].value){
+						/*Don't add if the macaddr already in the list*/
+						alreadypresent="true"
+						
+						
+						/* Table must already have been expanded so just fill up the data
+						 Fill up the columns with data*/
+						
+						
+						document.getElementById("addr"+macaddr).innerHTML=macaddr;
+						/*User assignment of names - may be store it on the server*/
+						updateReading(macaddr);
+							//document.getElementById("reading"+macaddr).innerHTML=Math.round(((rawreading-zerorawvaluedict[macaddr][0])/100)*eval(calibrationfactordict[macaddr][0])); /*eval is dangerous*/
+								//document.getElementById("reading" + macaddr).innerHTML = calculatedValue;  
+								document.getElementById("battery"+macaddr).innerHTML=battery;
+								document.getElementById("time"+macaddr).innerHTML=mytime;
+								
+								myReadings[macaddr].push({
+														 reading:document.getElementById("reading" + macaddr).innerHTML ,
+														 timestamp: mytime,
+														 battery:   battery
+														 });    
+														 break;
+					}
+					
+				}
+				/* Data being received from a MAC address which isn't alreadypresent in the list*/
+				if (alreadypresent=="false"){
+					
+					
+					/*Add this MAC address to the list of all online MAC addresses */
+					const newele0=document.createElement("Option");
+					newele0.value=macaddr;
+					mydatalist.appendChild(newele0);
+					/*Expand the sensortable to add another row with children whose id is assigned by concatenating macaddress*/
+					const newele1=document.createElement("tr");
+					newele1.setAttribute("id","row"+macaddr);
+					var mytable = document.getElementById("sensortable");
+					mytable.appendChild(newele1);
+					var myrow = document.getElementById("row"+macaddr);
+					/*Add columns to the new row*/
+					const newele2 = document.createElement("td");
+					newele2.setAttribute("id","addr"+macaddr);
+					newele2.setAttribute("class","td-hidden");
+					const newele2a = document.createElement("td");
+					newele2a.setAttribute("id","nametd"+macaddr);
+					const newele3 = document.createElement("td");
+					newele3.setAttribute("id","rawreading"+macaddr);
+					newele3.setAttribute("class","td-hidden");
+					const newele3a = document.createElement("td");
+					newele3a.setAttribute("id","calibrationfactor"+macaddr);
+					newele3a.setAttribute("class","td-hidden");
+					const newele3b = document.createElement("td");
+					newele3b.setAttribute("id","reading"+macaddr);
+					const newele4 = document.createElement("td");
+					newele4.setAttribute("id","battery"+macaddr);
+					const newele5 = document.createElement("td");
+					newele5.setAttribute("id","time"+macaddr);
+					const newele6 = document.createElement("td");
+					newele6.setAttribute("id","actions"+macaddr);
+					newele6.setAttribute("class","td-actions");
+					myrow.appendChild(newele2);
+					myrow.appendChild(newele2a);
+					myrow.appendChild(newele3);
+					myrow.appendChild(newele3a);
+					myrow.appendChild(newele3b);
+					myrow.appendChild(newele4);
+					myrow.appendChild(newele5);
+					myrow.appendChild(newele6);
+					/*Fill up the columns with data*/
+					document.getElementById("addr"+macaddr).innerHTML=macaddr;
+					/*User assignment of names - may be store it on the server*/
+					document.getElementById("rawreading"+macaddr).innerHTML=rawreading;
+					document.getElementById("reading"+macaddr).innerHTML=Math.round(((rawreading-zerorawvaluedict[macaddr][0])/100)*eval(calibrationfactordict[macaddr][0]));/*eval is dangerous*/
+					document.getElementById("battery"+macaddr).innerHTML=battery;
+					document.getElementById("time"+macaddr).innerHTML=mytime;
+					/*Actions Zero/Tare, Calibrate*/
+					const newele7 = document.createElement("button");
+					newele7.setAttribute("id","zero"+macaddr);
+					newele7.innerHTML="Zero";
+					newele7.setAttribute("onclick","tarescale('"+macaddr+"')");
+					const newele8 = document.createElement("button");
+					newele8.setAttribute("id","calibrate"+macaddr);
+					newele8.setAttribute("onclick","calibratescale('"+macaddr+"')");
+					newele8.innerHTML="Calibrate";
+					document.getElementById("actions"+macaddr).appendChild(newele7);
+					document.getElementById("actions"+macaddr).appendChild(newele8);
+					const newele2aa = document.createElement("input");
+					newele2aa.setAttribute("id","nameinput"+macaddr);
+					document.getElementById("nametd"+macaddr).appendChild(newele2aa);
+					
+				}
+				
+				
+				
+			}
+			
+			
+				// Function to convert a fraction to a 4-byte ArrayBuffer
+				function fractionToArrayBuffer(numerator, denominator) {
+					if (denominator === 0) {
+						throw new Error('Denominator cannot be zero.');
+					}
+					
+						// Calculate the floating-point value of the fraction
+						const value = numerator / denominator;
+						
+							// Create a Float32Array with one element
+							const float32Array = new Float32Array(1);
+							float32Array[0] = value;
+							
+								// Return the underlying ArrayBuffer (4 bytes)
+								return float32Array.buffer;
+				}
+			
+			
+			/*                
+			 // Example usage
+			 const numerator = 3;
+			 const denominator = 4;
+			 const arrayBuffer = fractionToArrayBuffer(numerator, denominator);
+			 
+			 // Log the ArrayBuffer as a byte array for verification
+			 const byteArray = new Uint8Array(arrayBuffer);
+			 console.log(byteArray); // Uint8Array [ ... ] where each element is a byte
+			 */
+			
+			function floatToArrayBuffer(float) {
+				const buffer = new ArrayBuffer(4);
+				const view = new DataView(buffer);
+				
+				view.setFloat32(0, float, true); // true for little-endian, false for big-endian
+				
+				return buffer;
+			}
+			function ArrayBufferTofloat(fourbytebuffer){
+				const byteArray = new Uint8Array(fourbytebuffer);
+					// Create an ArrayBuffer from the byteArray
+					const buffer = byteArray.buffer;
+					
+						// Use DataView to interpret the ArrayBuffer as a float32
+						const dataView = new DataView(buffer);
+						const floatNumber = dataView.getFloat32(0, true); // false for big-endian, true for little-endian
+						return floatNumber;
+			}              
+				//convertEpochSecondsToLocalTime(ArrayBufferTofloat(floatToArrayBuffer(getcurrentUTCepochseconds())));
+				
+				
+					// Function to convert a signed integer to a 4-byte ArrayBuffer
+					function signedIntToArrayBuffer(number,len) {
+							// Create a 4-byte ArrayBuffer
+							const buffer = new ArrayBuffer(len);
+							
+								// Create a DataView to manipulate the buffer
+								const view = new DataView(buffer);
+								
+									// Set the signed 32-bit integer value
+									view.setInt32(0, number, true); // true for little-endian, false for big-endian
+									
+									return buffer;
+					}
+			/*
+			 // Example usage
+			 const signedNumber = -123456;
+			 const intArrayBuffer = signedIntToArrayBuffer(signedNumber);
+			 
+			 // Log the ArrayBuffer as a byte array for verification
+			 const intByteArray = new Uint8Array(intArrayBuffer);
+			 console.log(intByteArray); // Uint8Array [ ... ] where each element is a byte                
+			 */
+			
+			
+				// Function to create a fixed-length byte array and copy ArrayBuffers into it
+				function memcopyArrayBuffers(buffers, totalLength) {
+						// Create a fixed-length Uint8Array
+						const resultArray = new Uint8Array(totalLength);
+						
+							// Keep track of the current offset
+							let offset = 0;
+							
+								// Copy each ArrayBuffer into the result array
+								buffers.forEach(buffer => {
+												const uint8View = new Uint8Array(buffer);
+												resultArray.set(uint8View, offset);
+												offset += uint8View.length;
+												});
+												
+												return resultArray;
+				}
+			
+			/*
+			 // Example usage
+			 const buffer1 = new ArrayBuffer(4);
+			 const buffer2 = new ArrayBuffer(4);
+			 const buffer3 = new ArrayBuffer(4);
+			 
+			 // Fill buffers with some data for demonstration
+			 new Uint8Array(buffer1).set([1, 2, 3, 4]);
+			 new Uint8Array(buffer2).set([5, 6, 7, 8]);
+			 new Uint8Array(buffer3).set([9, 10, 11, 12]);
+			 
+			 const totalLength = buffer1.byteLength + buffer2.byteLength + buffer3.byteLength;
+			 const combinedArray = memcopyArrayBuffers([buffer1, buffer2, buffer3], totalLength);
+			 
+			 console.log(combinedArray); // Uint8Array [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ]
+			 */                
+			
+			
+				// Function to convert a MAC address string to a 6-byte ArrayBuffer
+					// Function to convert a MAC address string to a 6-byte ArrayBuffer
+					function macAddressToArrayBuffer(macAddress) {
+						if (macAddress.length !== 12) {
+							throw new Error('MAC address must be 12 hexadecimal digits.');
+						}
+						
+							// Create a Uint8Array of length 6
+							const byteArray = new Uint8Array(6);
+							
+								// Convert each pair of hex digits to a number and store it in the byte array
+								for (let i = 0; i < 6; i++) {
+									const hexPair = macAddress.substr(i * 2, 2);
+									byteArray[i] = parseInt(hexPair, 16);
+								}
+								
+									// Return the underlying ArrayBuffer
+									return byteArray.buffer;
+					}
+			/*
+			 // Example usage
+			 const macAddress = "aabbccddeeff";
+			 const arrayBuffer = macAddressToArrayBuffer(macAddress);
+			 
+			 // Log the ArrayBuffer as a byte array for verification
+			 const byteArray = new Uint8Array(arrayBuffer);
+			 console.log(byteArray); // Uint8Array [ 170, 187, 204, 221, 238, 255 ]
+			 */
+			
+				// Function to convert a string to a 6-byte ArrayBuffer
+				function stringTo6ByteArrayBuffer(str) {
+						// Ensure the string is exactly 6 characters long
+						let paddedStr = str.padEnd(6, '\0').substring(0, 6);
+						
+							// Create a Uint8Array of length 6
+							const byteArray = new Uint8Array(6);
+							
+								// Convert each character to its corresponding byte value
+								for (let i = 0; i < 6; i++) {
+									byteArray[i] = paddedStr.charCodeAt(i);
+								}
+								
+									// Return the underlying ArrayBuffer
+									return byteArray.buffer;
+				}
+			/*
+			 // Example usage
+			 const exampleString = "Hello, World!";
+			 const arrayBuffer = stringTo6ByteArrayBuffer(exampleString);
+			 
+			 // Log the ArrayBuffer as a byte array for verification
+			 const byteArray = new Uint8Array(arrayBuffer);
+			 console.log(byteArray); // Uint8Array representing the first 6 characters
+			 */
+			
+			
+				// Function to convert character 'C' to a 1-byte ArrayBuffer
+				function charToArrayBuffer(char) {
+						// Create a Uint8Array of length 1
+						const byteArray = new Uint8Array(1);
+						
+							// Set the byte value to the character code of 'C'
+							byteArray[0] = char.charCodeAt(0);
+							
+								// Return the underlying ArrayBuffer
+								return byteArray.buffer;
+				}
+			
+			/*
+			 // Example usage
+			 const char = 'C';
+			 const arrayBuffer = charToArrayBuffer(char);
+			 
+			 // Log the ArrayBuffer as a byte array for verification
+			 const byteArray = new Uint8Array(arrayBuffer);
+			 console.log(byteArray); // Uint8Array [ 67 ]
+			 */                
+			
+			
+			
+			function tarescale(macaddr)
+			{
+				/*alert(macaddr);
+				 Store raw value from each macadrr in an associative array or dict = mycurrentrawvalues{} - stored as mycurrentrawvalues[macaddr]=[rawreading,battery,mytime];.
+				 sendback the macaddr, rawvalue and timestamp*/
+					//mymsgtosend="Z#"+macaddr+"|"+mycurrentrawvalues[macaddr][0]+"|"+mycurrentrawvalues[macaddr][2];
+						//console.log(mymsgtosend);
+						var nodename=document.getElementById("nameinput"+macaddr).value;
+						
+						/*24 bytes as 6 mac, 4 Zerorawvalue, 2 blank, 1 (ZorC), 4 binary timestamp, 6 binary Name, 1 reserved
+						 If byte 13 is set to Z - time stamp will be followed by name 6 bytes*/
+						
+						const macaddrbuff = macAddressToArrayBuffer(macaddr); // unable to use hex filenames on MCU hence ASCII encoding last 3 bytes of MAC
+							//const macaddrbuff = macLast3BytesToAsciiArrayBuffer(macaddr);
+							const ZeroValuebuff = floatToArrayBuffer(mycurrentrawvalues[macaddr][0],4);
+							const emptybuff = new ArrayBuffer(2);
+							new Uint8Array(emptybuff).set([0, 0]);
+							const singlecharbuff = charToArrayBuffer('Z');
+							const timestampbuff = floatToArrayBuffer(getcurrentUTCepochseconds());
+							const namebuff = stringTo6ByteArrayBuffer(nodename);
+								//Send binary frame to server
+								websock.send(memcopyArrayBuffers([macaddrbuff,ZeroValuebuff,emptybuff,singlecharbuff,timestampbuff,namebuff],24));
+									//Reset the zero value for this client. This client may or may not receive the broadcast sent by the server
+									zerorawvaluedict[macaddr]=[mycurrentrawvalues[macaddr][0],getCurrentLocalTime()];
+									updateReading(macaddr);
+			}
+			
+			
+			function calibratescale(macaddr)
+			{
+				/*
+				 Calibration fraction = known weight/ current reading
+				 Ask user to input known weight
+				 */
+				let userInput = prompt("Please enter the known weight on scale:");
+				
+				if (userInput !== null) { // Check if the user clicked "Cancel"
+					let calibweight = parseFloat(userInput);
+					/*24 bytes as 6 mac, 4 CalibFraction, 2 blank, 1 (ZorC), 4 binary timestamp, 6 binary Name, 1 reserved
+					 If byte 13 is set to Z - time stamp will be followed by name 6 bytes*/
+						//Set the calibration factor to 1 and update the reading
+						calibrationfactordict[macaddr]=[1,getCurrentLocalTime()];
+						updateReading(macaddr);
+						
+						const macaddrbuff = macAddressToArrayBuffer(macaddr); 
+							//const macaddrbuff = macLast3BytesToAsciiArrayBuffer(macaddr); //6  
+							const CalibFracbuff = floatToArrayBuffer(calibweight/document.getElementById("reading"+macaddr).innerHTML);   //4               
+							const emptybuff = new ArrayBuffer(2);//2
+							new Uint8Array(emptybuff).set([0, 0]);
+							const singlecharbuff = charToArrayBuffer('C');//1
+							const timestampbuff = floatToArrayBuffer(getcurrentUTCepochseconds());//4
+								//Send binary frame to server
+								websock.send(memcopyArrayBuffers([macaddrbuff,CalibFracbuff,emptybuff,singlecharbuff,timestampbuff],24));
+									//Reset the CalibFrac value for this client. This client may or may not receive the broadcast sent by the server
+									calibrationfactordict[macaddr]=[calibweight/document.getElementById("reading"+macaddr).innerHTML,getCurrentLocalTime()];
+									updateReading(macaddr);
+									
+									if (!isNaN(calibweight)) {
+											//alert("You entered the number: " + calibweight);
+									} else {
+										alert("That's not a valid number!");
+									}
+				} else {
+						//alert("You cancelled the prompt.");
+				}    
+				
+				
+				
+				
+			}
+			function stopsave(){
+				
+				fnButton('STOPSAVE');
+				document.getElementById("btSTARTSAVE").disabled=false;
+				document.getElementById("btZERO").disabled=false;
+				document.getElementById("btSTOPSAVE").disabled=true;
+			}
+			function sendTimestamp(){
+				
+				/*Send timestamp in milliseconds when connected */
+				var d = new Date();
+				var n = (d.getTime()/1000);
+				doSend("TIME-"+n);
+			}
+			
+			
+			document.getElementById('export-text').addEventListener('click', () => {
+																	exportToText(document.getElementById("livesensornodes" ).value);
+																	});
+																	
+																	document.getElementById('export-csv').addEventListener('click', () => {
+																														   exportToCSV(document.getElementById("livesensornodes" ).value);
+																														   });
+																														   
+																														   
+																														   function exportToText(paramMacAddr) {
+																															   
+																															   let text = '';
+																															   
+																															   for (const eachDataRow of myReadings[paramMacAddr]) 
+																															   {
+																																   text += `Timestamp: ${eachDataRow.timestamp}, Reading: ${eachDataRow.reading}, Battery: ${eachDataRow.battery}\n`; 
+																															   }
+																															   
+																															   const blob = new Blob([text], { type: 'text/plain' });
+																															   const url = URL.createObjectURL(blob);
+																															   const a = document.createElement('a');
+																															   a.href = url;
+																															   a.download = 'data.txt';
+																															   a.click();
+																															   URL.revokeObjectURL(url);
+																														   } 
+			
+			function exportToCSV(paramMacAddr) {
+				let csv = 'Timestamp,Reading,Battery\n';
+				
+				for (const eachDataRow of myReadings[paramMacAddr]) 
+				{
+					csv += `${eachDataRow.timestamp},${eachDataRow.reading},${eachDataRow.battery}\n`;  
+				}
+				
+				
+				
+				const blob = new Blob([csv], { type: 'text/csv' });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = 'data.csv';
+				a.click();
+				URL.revokeObjectURL(url);
+			}                
+			
+				</script>
+			</head>
+	<body onpageshow="javascript:start();">
+		<!--
+		 Server keeps the calibration data (based on MAC addresses)
+		 Server keeps track of raw values at the time of Tare
+		 Server returns data as 
+		 
+		 
+		 -->
 		
-	</body>
-	
+		<div><b>Digital Scale Server</b></div> 
+		<label>Available Scales</label>
+		<input id="livesensornodes" list="availablesensors">
+			
+			<button id="export-text">Export as Text</button>
+			<button id="export-csv">Export as CSV</button>
+			<br><br>
+			<button id = "btCLOSEWS" onclick="websock.close();">Close Websocket</button>
+			<br>
+			<table id="sensortable">
+				<tr id = "tableheadings">
+					<td class = "td-hidden">MacAddr</td>
+					<td>Name</td>
+					<td class = "td-hidden">RawReading</td>
+					<td class = "td-hidden">CalibrationFactor</td>
+					<td>Reading</td>
+					<td>Battery</td>
+					<td>Timestamp</td>
+					<td class = "td-actions">Actions</td>
+				</tr>
+			</table>
+			
+			<datalist id="availablesensors">
+			</datalist>
+			
+			</body>
 	
 </html>
+

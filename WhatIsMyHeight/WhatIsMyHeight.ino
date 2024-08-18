@@ -1,455 +1,333 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
-#include <WebSocketsServer.h>
-#include <Hash.h>
-#include <ESP8266WebServer.h>
-#include <string.h>
-#include <ArduinoOTA.h> 
-
-#define MAX_STRING_LEN  32
-
-//ESP8266 Standalone chips (?ESP12-E/F) - DIO 40 Mhz Flash, 80 MHz CPU, Flash Size 4M (1M SPIFFS)
-
-const char *ssid = "*****";
-const char *password = "*****";
-
-
-
-ESP8266WiFiMulti WiFiMulti;
-
-ESP8266WebServer server(80);
-WebSocketsServer webSocket = WebSocketsServer(8000);
-
-
-int trigPin = 4;    
-int echoPin = 5;    
-long duration, cm, inches; 
-char measurement[10] = {'M'};
-char calibration[10] = {'C'};
-static const char PROGMEM INDEX_HTML[] = R"rawliteral(<!DOCTYPE HTML>
-<html>
-<head>
-<meta name="viewport" content="width=device-width">
-
-<meta  content="text/html; charset=utf-8">
-<style>
-* {
-box-sizing: border-box;
-}
-
-[class*="col-"] {
-float: left;
-padding: 15px;
-}
-/* For mobile phones: */
-[class*="col-"] {
-width: 100%;
-}
-@media only screen and (min-width: 1024px) {
-/* For desktop: */
-.col-1 {width: 8.33%;}
-.col-2 {width: 16.66%;}
-.col-3 {width: 25%;}
-.col-4 {width: 33.33%;}
-.col-5 {width: 41.66%;}
-.col-6 {width: 50%;}
-.col-7 {width: 58.33%;}
-.col-8 {width: 66.66%;}
-.col-9 {width: 75%;}
-.col-10 {width: 83.33%;}
-.col-11 {width: 91.66%;}
-.col-12 {width: 100%;}
-}
-
-
-input {
-border: 2px solid #0008ff;
-border-radius: 5px;
-font-size: 16px;
-width: auto;
-}
-.button{
-background-color: #4CAF50; /* Green */
-border: none;
-color: white;
-padding: 15px 32px;
-text-align: center;
-text-decoration: none;
-display: inline-block;
-font-size: 16px;
-border-radius: 10px;
-}
-.button:hover {
-box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
-}
-.button:active {
-background-color: #3e8e41;
-box-shadow: 0 5px #666;
-transform: translateY(4px);
-}
-.inactive{
-opacity: 0.6;
-cursor: not-allowed;
-background-color: #ed4f4f; /* Red */
-border: none;
-color: white;
-padding: 15px 32px;
-text-align: center;
-text-decoration: none;
-display: inline-block;
-font-size: 16px;
-border-radius: 10px;
-}
-li{
-margin:10px;
-}
-ul{
-list-style-type: none;
-}
-
-</style>
-<script language="javascript" type="text/javascript">
-
-var boolConnected=false;
-var calibrate=0;
-var measurement=0;
-var mycval=0;
-var mymval=0;
-var myHeightCM=0;
-var myHeightInches=0;
-var myHeightFeetF=0;
-var myHeightFeetIn=0;
-function doConnect()
-{
-if (!(boolConnected)){
-/*websocket = new WebSocket(document.myform.url.value);*/
-/*
-websocket = new WebSocket('ws://192.168.1.106:8000/');
+/*Set Debug to Serial1 when flashing the sketch. Then all the os_printf will print to Serial1 which is GND to GND and USB-TTL RX to GPIO2 (Tx1)
+Initialize Serial but leave it alone in case toggling between Serial or SW Serial for data from US-100 
 */
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 
-websocket = new WebSocket('ws://' + window.location.hostname + ':8000/'); 
-boolConnected=true;
-websocket.onopen = function(evt) { onOpen(evt) };
-websocket.onclose = function(evt) { onClose(evt) };
-websocket.onmessage = function(evt) { onMessage(evt) };
-websocket.onerror = function(evt) { onError(evt) };
-}
+const char *ssid = "ESP";
+const char *password = "monte123";
+bool wsclientconnected  = false;
+unsigned long previousMillis = 0;
+unsigned long datasendinterval = 5000;
 
-}
-function onOpen(evt)
+AsyncWebServer server(80);
+AsyncWebSocket webSocket("/ws"); 
+
+
+
+
+char str[16]; //6 bytes + macaddr + 2 bytes distance + 2 bytes temp + 2 bytes battery + 4 bytes zeros
+uint8_t macAddr[6];
+
+
+
+
+
+
+
+
+// the US-100 module has jumper cap on the back for Serial comm mode. No Jumper for direct - trig/echo mode
+unsigned int HighLen = 0;
+unsigned int LowLen  = 0;
+unsigned int Len_mm  = 0;
+int Temperature45 = 0;
+
+int batteryVoltage;   
+int R1=990;
+int R2=298;
+
+int maxmillistowaitforUS100serialdata = 200; //Was working well with 500
+
+
+#include <SoftwareSerial.h>
+
+#define TRIGGER_PIN  4  // Arduino pin tied to trigger pin on the ultrasonic sensor. //TX pin for swSerial
+#define ECHO_PIN     5  // Arduino pin tied to echo pin on the ultrasonic sensor.//RX pin for swSerial
+
+
+SoftwareSerial swSer;
+
+unsigned int get_distance_via_swserial()
 {
-console.log("connected\n");
-
-}
-
-function onClose(evt)
+int cyclecount=0;
+int maxcyclecount=5;
+HighLen = 0;
+LowLen  = 0;
+Len_mm  = 0;
+while ((Len_mm==0) && (cyclecount<maxcyclecount)) 
 {
-console.log("disconnected\n");
-/* if server disconnected - change the color to red*/
-
-boolConnected=false;
-}
-
-function onMessage(evt)
+swSer.flush();                               // clear receive buffer of serial port
+swSer.write(0X55);                           // trig US-100 begin to measure the distance
+delay(500);                                   // delay 500ms to wait result
+if(swSer.available() >= 2)                   // when receive 2 bytes 
 {
-myHeightCM=0;
-myHeightInches=0;
-myHeightFeetF=0;
-myHeightFeetIn=0;
-console.log("response: " + evt.data + '\n');
-console.log(evt.data.slice(0,1));
-console.log(evt.data.slice(1));
-if (evt.data.slice(0,1) == "C"){
-calibrate= evt.data.slice(1);
-mycval=parseFloat(calibrate);
-myHeightCM= (mycval/(2*29.1)).toFixed(2);
-document.getElementById("btnZero").className="button";
-}
-else if  (evt.data.slice(0,1) == "M"){
-measurement= evt.data.slice(1);
-mymval=parseFloat(measurement);
-myHeightCM = ((mycval-mymval)/(2*29.1)).toFixed(2);
-myHeightInches = (parseFloat(myHeightCM)/2.54).toFixed(2);
-myHeightFeetF = Math.floor(parseFloat(myHeightInches)/12);
-myHeightFeetIn = Math.ceil(parseFloat(myHeightInches)%12);
-/* data from ESP is duration of echo   //cm = (duration/2) / 29.1; //inches = (duration/2) / 74;*/
-document.getElementById("btnMeasure").className="button";
-}
-document.getElementById('heightincms').value= myHeightCM;
-document.getElementById('heightininches').value= myHeightInches;
-document.getElementById('heightinfeetF').value = myHeightFeetF;
-document.getElementById('heightinfeetIn').value = myHeightFeetIn;
+HighLen = swSer.read();                   // High byte of distance
+LowLen  = swSer.read();                   // Low byte of distance
+Len_mm  = HighLen*256 + LowLen;            // Calculate the distance
 
 }
-function onError(evt)
+cyclecount++;
+delay(50);
+
+}  
+os_printf("Distance is %d\n", Len_mm/10);
+return Len_mm/10;
+
+}
+
+int get_temp_via_swserial()
 {
-console.log('error: ' + evt.data + '\n');
-websocket.close();
-}
-function doSend(message)
+Temperature45 = 0;
+swSer.flush();       // clear receive buffer of serial port
+swSer.write(0X50);   // trig US-100 begin to measure the temperature
+delay(500);            //delay 500ms to wait result
+if(swSer.available() >= 1)            //when receive 1 bytes 
 {
-console.log("sent: " + message + '\n');
-websocket.send(message);
-}
-function closeWS()
+Temperature45 = swSer.read();     //Get the received byte (temperature)
+if((Temperature45 > 1) && (Temperature45 < 130))   //the valid range of received data is (1, 130)
 {
-/* Probable bug in arduino websocket - hangs if not closed properly, specially by a phone browser entering a powersaving mode*/
-websocket.close();
-boolConnected=false;
-}
-/*    On android - when page loads - focus event isn't fired so websocket doesn't connect*/										  
-window.addEventListener("focus",doConnect, false);
-window.addEventListener("blur",closeWS, false);
-window.addEventListener('load', function() {
-foo(true); 
-/*After page loading blur doesn't fire until focus has fired at least once*/
-},{once:true}, false);
-function foo(bool) 
-{
-if (bool)
-{
-doConnect();
-} else 
-{
-websocket.close();    
+Temperature45 -= 45;                           //Real temperature = Received_Data - 45
+
 }
 }
-function sendZero(){
-doSend('ZERO');
-document.getElementById("btnZero").className="inactive";
-}
-function sendMeasure(){
-doSend('MEASURE');
-document.getElementById("btnMeasure").className="inactive";
-}
-</script>
 
-<title>What is my Height</title></head>
-<body>
-
-
-<div class = "col-6">
-
-<button id = 'btnZero' class = "button" onclick='sendZero()'>Zero</button>
-<button id = 'btnMeasure' class = "button" onclick='sendMeasure()' style = "float:right;">Measure</button><br><br>
-<label>Your height = </label> 
-<ul><li><input type='number' id='heightincms'> <strong>CMs</strong></li><li><input type='number' id='heightininches'> <strong>inches </strong> </li><li><input type='number' id='heightinfeetF'> <strong>Feet </strong> 
-<input type='number' id='heightinfeetIn'> <strong>inches </strong> </li></ul>  
-
-
-</div>
-
-</body>
-
-
-</html>
-)rawliteral";
-
-
-
-
-
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length)
-{
-  Serial.printf("webSocketEvent(%d, %d, ...)\r\n", num, type);
-  switch(type) {
-    case WStype_DISCONNECTED:
-      Serial.printf("[%u] Disconnected!\r\n", num);
-      break;
-    case WStype_CONNECTED:
-      {
-        IPAddress ip = webSocket.remoteIP(num);
-        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\r\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-      //itoa( cm, str, 10 );
-      //  webSocket.sendTXT(num, str, strlen(str));
-      }
-      break;
-    case WStype_TEXT:
-     {
-      Serial.printf("[%u] get Text: %s\r\n", num, payload);
-//Payload will be - FOR REV STOP
-      
-     char *mystring = (char *)payload;
-      
-      if (strcmp(mystring,"ZERO") == 0)
-      {
-        doCalibrate();
-         //webSocket.broadcastTXT(payload, length);
-      }
-      else if (strcmp(mystring,"MEASURE") == 0) 
-      {
-        doMeasure();
-           //webSocket.broadcastTXT(payload, length);
-      } 
-
-     }
-      break;
-    case WStype_BIN:
-      Serial.printf("[%u] get binary length: %u\r\n", num, length);
-      hexdump(payload, length);
-
-      // echo data back to browser
-      webSocket.sendBIN(num, payload, length);
-      break;
-    default:
-      Serial.printf("Invalid WStype [%d]\r\n", type);
-      break;
-  }
-}
-
-void handleRoot()
-{
-  server.send_P(200, "text/html", INDEX_HTML);
-}
-
-void handleNotFound()
-{
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET)?"GET":"POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i=0; i<server.args(); i++){
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
+delay(10);   
+//delay 500ms
+os_printf("Temp is %d\n", Temperature45);
+return Temperature45;
 }
 
 
-void doCalibrate()
-{
- Serial.println("Calibrating");
-  hcsr04();
-  itoa( duration, calibration+1, 10 );
-  webSocket.broadcastTXT(calibration,10);
-    
-  }
 
-void doMeasure()
-{
-   Serial.println("Measuring");
-  hcsr04();
-  itoa( duration, measurement+1, 10 );
-  webSocket.broadcastTXT(measurement,10);
-    
+
+
+
+//unsigned int get_distance_via_serial()
+//{
+//int cyclecount=0;
+//int maxcyclecount=5;
+//
+//HighLen = 0;
+//LowLen  = 0;
+//Len_mm  = 0;
+//
+//while ((Len_mm==0) && (cyclecount<maxcyclecount)) 
+//{
+//Serial.flush();                               // clear receive buffer of serial port
+//Serial.write(0X55);                           // trig US-100 begin to measure the distance
+//delay(maxmillistowaitforUS100serialdata);     
+//if(Serial.available() >= 2)                   // when receive 2 bytes 
+//{
+//HighLen = Serial.read();                   // High byte of distance
+//LowLen  = Serial.read();                   // Low byte of distance
+//Len_mm  = HighLen*256 + LowLen;            // Calculate the distance
+//
+//}
+//cyclecount++;
+//delay(50);
+//
+//}  
+//os_printf("Distance is %d\n", Len_mm/10);
+//return Len_mm/10;
+//
+//}
+//
+//int get_temp_via_serial()
+//{
+// Temperature45 = 0;
+//Serial.flush();       // clear receive buffer of serial port
+//Serial.write(0X50);   // trig US-100 begin to measure the temperature
+//delay(maxmillistowaitforUS100serialdata);            
+//if(Serial.available() >= 1)            //when receive 1 bytes 
+//{
+//Temperature45 = Serial.read();     //Get the received byte (temperature)
+//if((Temperature45 > 1) && (Temperature45 < 130))   //the valid range of received data is (1, 130)
+//{
+//Temperature45 -= 45;                           //Real temperature = Received_Data - 45
+//
+//}
+//}
+//
+//delay(10);                            //delay 500ms
+//os_printf("Temp is %d\n", Temperature45);
+//return Temperature45;
+//}
+
+
+
+void preparedata(){
+
+
+WiFi.macAddress(macAddr);
+unsigned int mydistance;
+int mytemp;
+//ADC*(1.1/1024) will give the Vout at the voltage divider
+//V=(Vout*((R1+R2)/R2))*1000 miliVolts
+//batteryVoltage = ((analogRead(A0)*(1.1/1024))*((R1+R2)/R2))*1000;
+
+
+memcpy(str,macAddr,6); // First 6 bytes = MAC Address , then 2 bytes of distance, 2 bytes of temp and 2 bytes of batteryvoltage = total 12 bytes. Padded total 16 bytes.
+mydistance=get_distance_via_swserial();
+mytemp=get_temp_via_swserial();
+//mydistance=get_distance_via_serial();
+//mytemp=get_temp_via_serial();
+memcpy(str+6,&mydistance,2);
+memcpy(str+8,&mytemp,2);
+memcpy(str+10,&batteryVoltage,2);
+
+delay(10); 
+
+
+}
+
+
+void onEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+  if(type == WS_EVT_CONNECT){
+    //client connected
+    wsclientconnected = true;
+    os_printf("ws[%s][%u] connect\n", server->url(), client->id());
+    //client->printf("Z#a020a60a86ce|-811493|2022-4-12 21:33:49");
+    //client->printf("C#a020a60a86ce|500/285|2022-4-12 21:33:49"); 
+    //client->ping();
+  } else if(type == WS_EVT_DISCONNECT){
+    //client disconnected
+    wsclientconnected = false;
+    os_printf("ws[%s][%u] disconnect: %u\n", server->url(), client->id());
+  } else if(type == WS_EVT_ERROR){
+    //error was received from the other end
+    os_printf("ws[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+  } else if(type == WS_EVT_PONG){
+    //pong message was received (in response to a ping request maybe)
+    os_printf("ws[%s][%u] pong[%u]: %s\n", server->url(), client->id(), len, (len)?(char*)data:"");
+  } else if(type == WS_EVT_DATA){
   
-  }
-void hcsr04()
-{
-   //HR-SC04 
-   // The sensor is triggered by a HIGH pulse of 10 or more microseconds.
-  // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(5);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
+    AwsFrameInfo * info = (AwsFrameInfo*)arg;
+    if(info->final && info->index == 0 && info->len == len){
+      //the whole message is in a single frame and we got all of it's data
+      os_printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+      if(info->opcode == WS_TEXT){
+        data[len] = 0;
+        os_printf("%s\n", (char*)data);
+//        
+      } else {
+        for(size_t i=0; i < info->len; i++){
+          os_printf("%02x ", data[i]);
+        }
+        os_printf("\n");
+      }
+      if(info->opcode == WS_TEXT){
+        //client->text("I got your text message");
+      }
+      else{
+        //client->binary("I got your binary message");
+      }
+    
+        
+    } else {
+      //message is comprised of multiple frames or the frame is split into multiple packets
+      if(info->index == 0){
+        if(info->num == 0)
+          os_printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+        os_printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+      }
+
+      os_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+      if(info->message_opcode == WS_TEXT){
+        data[len] = 0;
+        os_printf("%s\n", (char*)data);
+      } else {
+        for(size_t i=0; i < len; i++){
+          os_printf("%02x ", data[i]);
+        }
+        os_printf("\n");
+      }
+
+      if((info->index + len) == info->len){
+        os_printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+        if(info->final){
+          os_printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+          if(info->message_opcode == WS_TEXT){
+           // client->text("I got your text message");
+          }
+          else {
+         //   client->binary("I got your binary message");
+        }
+        }
+      }
+    }
  
-  // Read the signal from the sensor: a HIGH pulse whose
-  // duration is the time (in microseconds) from the sending
-  // of the ping to the reception of its echo off of an object.
-  //pinMode(echoPin, INPUT);
-  duration = pulseIn(echoPin, HIGH);
-  //delay(ms) pauses the sketch for a given number of milliseconds and allows WiFi and TCP/IP tasks to run. 
-  //delayMicroseconds function, on the other hand, does not yield to other tasks, so using it for delays more than 20 milliseconds is not recommended
-  delayMicroseconds(10000);
-  // convert the time into a distance
-  //cm = (duration/2) / 29.1;
-  //inches = (duration/2) / 74; 
-  
-  //Serial.print(inches);
-  //Serial.print("in, ");
-//  Serial.print(cm);
-//  Serial.print("cm");
-//  Serial.println();
+    
   }
-void setup()
-{ 
+}
 
+void senddata(){
+  webSocket.binaryAll(str, 16);
+  }
 
-  Serial.begin(115200);
+void setup() {
+
+ Serial.begin(9600);
+ Serial1.begin(9600);
   delay(10);
  
-    // HR-SC04
-  //Define inputs and outputs
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
 
-  Serial.println();
-  Serial.println();
-  Serial.println();
-
+  Serial1.println();
+  Serial1.println();
+  Serial1.println();
+WiFi.mode(WIFI_STA);
   for(uint8_t t = 4; t > 0; t--) {
-    Serial.printf("[SETUP] BOOT WAIT %d...\r\n", t);
-    Serial.flush();
+    Serial1.printf("[SETUP] BOOT WAIT %d...\r\n", t);
+    Serial1.flush();
     delay(1000);
   }
-  WiFi.mode(WIFI_STA);
-  WiFiMulti.addAP(ssid, password);
 
-  while(WiFiMulti.run() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(100);
-  }
+  Serial1.print("Configuring access point...");
+  WiFi.softAP(ssid, password,1);
 
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  IPAddress myIP = WiFi.softAPIP();
+  Serial1.print("AP IP address: ");
+ Serial1.println(myIP);
+Serial1.printf("MAC address = %s\n", WiFi.softAPmacAddress().c_str());
 
 
-  Serial.print("Connect to http://");
-  Serial.println(WiFi.localIP());
-  
-  server.on("/", handleRoot);
-  server.onNotFound(handleNotFound);
+memset(str,0,16); //reset our data buffer
 
+
+
+pinMode(ECHO_PIN,INPUT); //GPIO 5- Rx PIN for swSer
+pinMode(TRIGGER_PIN,OUTPUT); //GPIO 4 - Tx PIN for swSer
+
+swSer.begin(9600, SWSERIAL_8N1, ECHO_PIN, TRIGGER_PIN, false, 95, 11);           
+
+webSocket.onEvent(onEvent);
+  server.addHandler(&webSocket);
   server.begin();
 
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
 
 
 
-/* ************OTA********************* */
-    // Port defaults to 8266
-  // ArduinoOTA.setPort(8266);
 
-  // Hostname defaults to esp8266-[ChipID]
-  // ArduinoOTA.setHostname("myesp8266");
 
-  // No authentication by default
-  // ArduinoOTA.setPassword((const char *)"123");
-   
-   ArduinoOTA.onStart([]() {
-    Serial1.println("Start");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial1.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial1.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial1.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial1.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial1.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial1.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial1.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial1.println("End Failed");
-  });
-  ArduinoOTA.begin();
-/****************************************************/ 
 
- WiFi.printDiag(Serial);
+
+
+
+
 }
-void loop()
-{
-  webSocket.loop();
-  server.handleClient();
+void loop() {
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >=datasendinterval){
+    
+    if(wsclientconnected){
+      preparedata();
+      senddata();
+      memset(str,0,16); //reset our data buffer
+      }
+    previousMillis = millis();
+    
   }
+webSocket.cleanupClients();
+
+}
