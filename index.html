@@ -506,7 +506,7 @@ Padded total 16 bytes.*/
 			//let calibrationFactor = calibrationfactordict[macaddr][0];
 			
 			//let calculatedValue = Math.round(((rawreading - zeroRawValue) / 100) * calibrationFactor);
-			
+			document.getElementById("rawreading"+macaddr).innerHTML=mycurrentrawvalues[macaddr][0];
 			document.getElementById("distance" + macaddr).innerHTML = mycurrentrawvalues[macaddr][0];
 			document.getElementById("temperature" + macaddr).innerHTML = mycurrentrawvalues[macaddr][1];
 			document.getElementById("battery" + macaddr).innerHTML = mycurrentrawvalues[macaddr][2];
@@ -601,7 +601,7 @@ Padded total 16 bytes.*/
 			neweletd3.setAttribute("id","rawreading"+macaddr);
 			neweletd3.setAttribute("class","td-hidden");
 			myrow.appendChild(neweletd3);
-			document.getElementById("rawreading"+macaddr).innerHTML=rawreading;
+			
 			
 			const neweletd4 = document.createElement("td");
 			neweletd4.setAttribute("id","calibrationfactor"+macaddr);
