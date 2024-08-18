@@ -146,8 +146,12 @@
 		<canvas id="data-chart" width="400" height="200"></canvas>
 		<div>
 			<label>
-				<input type="checkbox" id="toggle-reading" checked>
-					Show Reading
+				<input type="checkbox" id="toggle-distance" checked>
+					Show Distance
+					</label>
+            <label>
+				<input type="checkbox" id="toggle-temperature" checked>
+					Show Temperature
 					</label>
 			<label>
 				<input type="checkbox" id="toggle-battery" checked>
@@ -501,13 +505,13 @@
 	
 		// Function to update the HTML element
 		function updateReading(macaddr) {
-				//let rawreading = mycurrentrawvalues[macaddr][0];
-					//let zeroRawValue = zerorawvaluedict[macaddr][0];
+				let rawreading = mycurrentrawvalues[macaddr][0];
+				let zeroRawValue = zerorawvaluedict[macaddr][0];
 						//let calibrationFactor = calibrationfactordict[macaddr][0];
 						
-							//let calculatedValue = Math.round(((rawreading - zeroRawValue) / 100) * calibrationFactor);
-							document.getElementById("rawreading"+macaddr).innerHTML=mycurrentrawvalues[macaddr][0];
-							document.getElementById("distance" + macaddr).innerHTML = mycurrentrawvalues[macaddr][0];
+            let calculatedValue = zeroRawValue -rawreading;
+							document.getElementById("rawreading"+macaddr).innerHTML=rawreading;
+							document.getElementById("distance" + macaddr).innerHTML = calculatedValue;
 							document.getElementById("temperature" + macaddr).innerHTML = mycurrentrawvalues[macaddr][1];
 							document.getElementById("battery" + macaddr).innerHTML = mycurrentrawvalues[macaddr][2];
 		}
@@ -537,7 +541,7 @@
 				updateReading(macaddr);
 				document.getElementById("time"+macaddr).innerHTML=mytime;
 				myReadings[macaddr].push({
-										 distance:distance,
+										 distance:document.getElementById("distance" + macaddr).innerHTML,
 										 temperature:temperature,
 										 timestamp: mytime,
 										 battery:   batteryV
@@ -864,28 +868,8 @@
 	
 	function tarescale(macaddr)
 	{
-		/*alert(macaddr);
-		 Store raw value from each macadrr in an associative array or dict = mycurrentrawvalues{} - stored as mycurrentrawvalues[macaddr]=[rawreading,battery,mytime];.
-		 sendback the macaddr, rawvalue and timestamp*/
-			//mymsgtosend="Z#"+macaddr+"|"+mycurrentrawvalues[macaddr][0]+"|"+mycurrentrawvalues[macaddr][2];
-				//console.log(mymsgtosend);
-				var nodename=document.getElementById("nameinput"+macaddr).value;
-				
-				/*24 bytes as 6 mac, 4 Zerorawvalue, 2 blank, 1 (ZorC), 4 binary timestamp, 6 binary Name, 1 reserved
-				 If byte 13 is set to Z - time stamp will be followed by name 6 bytes*/
-				
-				const macaddrbuff = macAddressToArrayBuffer(macaddr); // unable to use hex filenames on MCU hence ASCII encoding last 3 bytes of MAC
-					//const macaddrbuff = macLast3BytesToAsciiArrayBuffer(macaddr);
-					const ZeroValuebuff = floatToArrayBuffer(mycurrentrawvalues[macaddr][0],4);
-					const emptybuff = new ArrayBuffer(2);
-					new Uint8Array(emptybuff).set([0, 0]);
-					const singlecharbuff = charToArrayBuffer('Z');
-					const timestampbuff = floatToArrayBuffer(getcurrentUTCepochseconds());
-					const namebuff = stringTo6ByteArrayBuffer(nodename);
-						//Send binary frame to server
-						websock.send(memcopyArrayBuffers([macaddrbuff,ZeroValuebuff,emptybuff,singlecharbuff,timestampbuff,namebuff],24));
-							//Reset the zero value for this client. This client may or may not receive the broadcast sent by the server
-							zerorawvaluedict[macaddr]=[mycurrentrawvalues[macaddr][0],getCurrentLocalTime()];
+
+                    zerorawvaluedict[macaddr]=[mycurrentrawvalues[macaddr][0],getCurrentLocalTime()];
 							updateReading(macaddr);
 	}
 	
@@ -1198,14 +1182,18 @@
 			}
 	
 		// Event listeners to toggle datasets
-		document.getElementById('toggle-reading').addEventListener('change', function() {
-																   myChart.data.datasets[0].hidden = !this.checked; // Toggle Reading dataset
+		document.getElementById('toggle-distance').addEventListener('change', function() {
+																   myChart.data.datasets[0].hidden = !this.checked; // Toggle Distance dataset
 																   updateYAxisRange();
 																   
 																   });
+		document.getElementById('toggle-temperature').addEventListener('change', function() {
+																   myChart.data.datasets[1].hidden = !this.checked; // Toggle Distance dataset
+																   updateYAxisRange();
 																   
-																   document.getElementById('toggle-battery').addEventListener('change', function() {
-																															  myChart.data.datasets[1].hidden = !this.checked; // Toggle Battery dataset
+																   });
+document.getElementById('toggle-battery').addEventListener('change', function() {
+																															  myChart.data.datasets[2].hidden = !this.checked; // Toggle Battery dataset
 																															  updateYAxisRange();
 																															  
 																															  });
@@ -1253,8 +1241,8 @@
 																  macAddrSet.add(macAddr);
 																  
 																  const data = lines.slice(1).map(line => { // Skip header
-																								  const [timestamp, reading, battery] = line.split(',');
-																								  return { timestamp, reading: parseFloat(reading), battery: parseFloat(battery) };
+																								  const [timestamp, distance, temperature, battery] = line.split(',');
+																								  return { timestamp, distance: parseInt(distance),temperature: parseIn(temperature), battery: parseFloat(battery) };
 																								  });
 																  
 																  allData.push({ macAddr, data });
