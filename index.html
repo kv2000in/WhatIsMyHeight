@@ -116,7 +116,8 @@
 				<td>Name</td>
 				<td class = "td-hidden">RawReading</td>
 				<td class = "td-hidden">CalibrationFactor</td>
-				<td>Reading</td>
+				<td>Height</td>
+				<td>Temp</td>
 				<td>Battery</td>
 				<td>Timestamp</td>
 				<td class = "td-actions">Actions</td>
@@ -445,60 +446,30 @@
 			websock.send(memcopyArrayBuffers([macaddrbuff,emptybuff,singlecharbuff,timestampbuff],24));
 			
 	}
+        
+    function twobytes2int(twobytes){
+        var myintview = new DataView(twobytes); 
+        return myintview.getInt16(0,true);
+    }
 	
 	function handleserverbinarydata(serverbinarydata){
-		/*// First 6 bytes = MAC Address , 
-        then 2 bytes of distance, 
-        2 bytes of temp 
-        and 2 bytes of batteryvoltage = total 12 bytes. 
+		/*// First 6 bytes = MAC Address , 0-6
+        then 2 bytes of distance, 6-8
+        2 bytes of temp 8-10
+        and 2 bytes of batteryvoltage = total 12 bytes. 10-12
 Padded total 16 bytes.*/
 			console.log(serverbinarydata);
 			var mybinarydataarray= new Uint8Array(serverbinarydata);
 			var mysendermacaddress = mybinarydataarray.slice(0,6);
 			var mysendermacaddressclean = buf2hex(mysendermacaddress);
-				//var myscalefloatvaluebytes = serverbinarydata.slice(6,10); 
-				var mybatteryvoltagebytes = serverbinarydata.slice(10,12);
-					//var myfloatview = new DataView(myscalefloatvaluebytes);
-					var myintview = new DataView(mybatteryvoltagebytes);
-						//var myscalefloatvalue = myfloatview.getFloat32(0,true); /* Signed 32 bit float, little endian. https:/developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView/getFloat32*/
-						var mybatteryvoltage = myintview.getInt16(0,true);
-						var myscalefloatvalue=ArrayBufferTofloat(serverbinarydata.slice(6,10));
-							//(1) Check if the optional byte is set to Z or C
-							var myoptionalbyte = new DataView(serverbinarydata.slice(12,13)).getUint8();
-							switch(String.fromCharCode(myoptionalbyte)){
-								case 'Z':
-									//So this data frame contains Zero data
-									handleZerodata(mysendermacaddressclean,myscalefloatvalue,serverbinarydata.slice(13,17),serverbinarydata.slice(17,24),);
-									return;
-									case 'C':
-										//So this data frame contains Calibration data
-										handleCalibrationdata(mysendermacaddressclean,myscalefloatvalue,serverbinarydata.slice(13,17));
-										return;
-										default:
-											//if zero and calib values for this node are not yet received - request it from the server
+			var mydistance = twobytes2int(serverbinarydata.slice(6,8));				
+        	var mytemperature = twobytes2int(serverbinarydata.slice(8,10));
+			var mybatteryvoltage = twobytes2int(serverbinarydata.slice(10,12));
+			/*call the data handler routine*/
+			handlecleanedupdata(mysendermacaddressclean,mydistance, mytemperature, mybatteryvoltage,getCurrentLocalTime());
 											
-											if (isArrayEmptyOrNull(calibrationfactordict[mysendermacaddressclean]))  {
-													//while waiting for this info to be available - server may or may not have it - set the current calib value to one
-													calibrationfactordict[mysendermacaddressclean]=[1,getCurrentLocalTime()];
-													
-													
-													requeststoredval(mysendermacaddressclean,'c');
-											} 
-											if (isArrayEmptyOrNull(zerorawvaluedict[mysendermacaddressclean])) {
-													//while waiting for this info to be available - server may or may not have it - set the current raw value to zero
-													zerorawvaluedict[mysendermacaddressclean]=[0,getCurrentLocalTime()];
-													requeststoredval(mysendermacaddressclean,'z');
-													
-											}
-											
-											
-											
-											
-											/*call the data handler routine*/
-											handlecleanedupdata(mysendermacaddressclean,myscalefloatvalue,mybatteryvoltage,getCurrentLocalTime());
-											
-							}
-	}
+						}
+	
 	/* https:/stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex*/
 	
 	function buf2hex(buffer) { /* buffer is an ArrayBuffer*/
@@ -530,17 +501,19 @@ Padded total 16 bytes.*/
 	
 		// Function to update the HTML element
 		function updateReading(macaddr) {
-			let rawreading = mycurrentrawvalues[macaddr][0];
-			let zeroRawValue = zerorawvaluedict[macaddr][0];
-			let calibrationFactor = calibrationfactordict[macaddr][0];
+			//let rawreading = mycurrentrawvalues[macaddr][0];
+			//let zeroRawValue = zerorawvaluedict[macaddr][0];
+			//let calibrationFactor = calibrationfactordict[macaddr][0];
 			
-			let calculatedValue = Math.round(((rawreading - zeroRawValue) / 100) * calibrationFactor);
+			//let calculatedValue = Math.round(((rawreading - zeroRawValue) / 100) * calibrationFactor);
 			
-			document.getElementById("reading" + macaddr).innerHTML = calculatedValue;
+			document.getElementById("distance" + macaddr).innerHTML = mycurrentrawvalues[macaddr][0];
+			document.getElementById("temperature" + macaddr).innerHTML = mycurrentrawvalues[macaddr][1];
+			document.getElementById("battery" + macaddr).innerHTML = mycurrentrawvalues[macaddr][2];
 		}
-	function handlecleanedupdata(macaddr,rawreading,battery,mytime){
+	function handlecleanedupdata(macaddr,distance,temperature,batteryV,mytime){
 		/*create or update an entry in to the rawvalues dict and add the current values*/
-		mycurrentrawvalues[macaddr]=[rawreading,battery,mytime];
+		mycurrentrawvalues[macaddr]=[distance,temperature,batteryV,mytime];
 		if (!myReadings[macaddr]) {
 			myReadings[macaddr] = [];
 		}
@@ -562,15 +535,12 @@ Padded total 16 bytes.*/
 				document.getElementById("nametooltip"+macaddr).innerHTML=macaddr;
 				/*User assignment of names - may be store it on the server*/
 				updateReading(macaddr);
-					//document.getElementById("reading"+macaddr).innerHTML=Math.round(((rawreading-zerorawvaluedict[macaddr][0])/100)*eval(calibrationfactordict[macaddr][0])); /*eval is dangerous*/
-						//document.getElementById("reading" + macaddr).innerHTML = calculatedValue;  
-						document.getElementById("battery"+macaddr).innerHTML=battery;
-						document.getElementById("time"+macaddr).innerHTML=mytime;
-						
-						myReadings[macaddr].push({
-												 reading:document.getElementById("reading" + macaddr).innerHTML ,
+				document.getElementById("time"+macaddr).innerHTML=mytime;
+				myReadings[macaddr].push({
+												 distance:distance,
+										 temperature:temperature,
 												 timestamp: mytime,
-												 battery:   battery
+												 battery:   batteryV
 												 });    
 												 break;
 			}
@@ -639,39 +609,43 @@ Padded total 16 bytes.*/
 			myrow.appendChild(neweletd4);
 			
 			const neweletd5 = document.createElement("td");
-			neweletd5.setAttribute("id","reading"+macaddr);
+			neweletd5.setAttribute("id","distance"+macaddr);
 			myrow.appendChild(neweletd5);
-			updateReading(macaddr);
+			
 			
 			const neweletd6 = document.createElement("td");
-			neweletd6.setAttribute("id","battery"+macaddr);
+			neweletd6.setAttribute("id","temperature"+macaddr);
 			myrow.appendChild(neweletd6);
-			document.getElementById("battery"+macaddr).innerHTML=battery;
-			
 			
 			const neweletd7 = document.createElement("td");
-			neweletd7.setAttribute("id","time"+macaddr);
+			neweletd7.setAttribute("id","battery"+macaddr);
 			myrow.appendChild(neweletd7);
-			document.getElementById("time"+macaddr).innerHTML=mytime;
+			updateReading(macaddr);
 			
 			
 			const neweletd8 = document.createElement("td");
-			neweletd8.setAttribute("id","actions"+macaddr);
-			neweletd8.setAttribute("class","td-actions");
+			neweletd8.setAttribute("id","time"+macaddr);
 			myrow.appendChild(neweletd8);
+			document.getElementById("time"+macaddr).innerHTML=mytime;
+			
+			
+			const neweletd9 = document.createElement("td");
+			neweletd9.setAttribute("id","actions"+macaddr);
+			neweletd9.setAttribute("class","td-actions");
+			myrow.appendChild(neweletd9);
 			
 			/*Actions Zero/Tare, Calibrate*/
-			const neweletd8a = document.createElement("button");
-			neweletd8a.setAttribute("id","zero"+macaddr);
-			neweletd8a.innerHTML="Zero";
-			neweletd8a.setAttribute("onclick","tarescale('"+macaddr+"')");
-			document.getElementById("actions"+macaddr).appendChild(neweletd8a);
+			const neweletd9a = document.createElement("button");
+			neweletd9a.setAttribute("id","zero"+macaddr);
+			neweletd9a.innerHTML="Zero";
+			neweletd9a.setAttribute("onclick","tarescale('"+macaddr+"')");
+			document.getElementById("actions"+macaddr).appendChild(neweletd9a);
 			
-			const neweletd8b = document.createElement("button");
-			neweletd8b.setAttribute("id","calibrate"+macaddr);
-			neweletd8b.setAttribute("onclick","calibratescale('"+macaddr+"')");
-			neweletd8b.innerHTML="Calibrate";
-			document.getElementById("actions"+macaddr).appendChild(neweletd8b);
+			const neweletd9b = document.createElement("button");
+			neweletd9b.setAttribute("id","calibrate"+macaddr);
+			neweletd9b.setAttribute("onclick","calibratescale('"+macaddr+"')");
+			neweletd9b.innerHTML="Calibrate";
+			document.getElementById("actions"+macaddr).appendChild(neweletd9b);
 			
 			
 			/*Fill up the columns with data*/
