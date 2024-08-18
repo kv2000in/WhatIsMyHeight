@@ -469,15 +469,19 @@
 			var mydistance = twobytes2int(serverbinarydata.slice(6,8));				
 			var mytemperature = twobytes2int(serverbinarydata.slice(8,10));
 			var mybatteryvoltage = twobytes2int(serverbinarydata.slice(10,12));
-			/*call the data handler routine*/
-			handlecleanedupdata(mysendermacaddressclean,mydistance, mytemperature, mybatteryvoltage,getCurrentLocalTime());
-	       if (isArrayEmptyOrNull(zerorawvaluedict[mysendermacaddressclean])) {
+        
+        
+        	       if (isArrayEmptyOrNull(zerorawvaluedict[mysendermacaddressclean])) {
                 zerorawvaluedict[mysendermacaddressclean]=[0,getCurrentLocalTime()];
             }	
         
             if (isArrayEmptyOrNull(calibrationfactordict[mysendermacaddressclean]))  {
                 calibrationfactordict[mysendermacaddressclean]=[1,getCurrentLocalTime()];
             }
+        
+			/*call the data handler routine*/
+			handlecleanedupdata(mysendermacaddressclean,mydistance, mytemperature, mybatteryvoltage,getCurrentLocalTime());
+
     }
 	
 	/* https:/stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex*/
