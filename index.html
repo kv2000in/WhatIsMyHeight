@@ -34,6 +34,10 @@
 									.background{
 										display:none;
 									}
+									.simpleUI{
+										font-size: xx-large;
+										text-align: center;
+									}
 									.td-actions{
 										visibility: visible;
 									}
@@ -105,7 +109,8 @@
 		<div><b>Digital Height Server</b>
 			
 			<button id="toggle-websocket">Connect</button>
-			<span id="status-light" style="display:inline-block; width: 20px; height: 20px; border-radius: 50%; background-color: red;"></span>
+			<span id="status-light" style="display:inline-block; width: 20px; height: 20px; border-radius: 50%; background-color: red;"></span> <button class = "simpleUI" id ="simpleUIzero">Zero</button>
+			<br>
 			
 			
 			<!-- <button id = "btOPENWS" onclick="start();">Connect</button> <button id = "btCLOSEWS" onclick="websock.close();">Close</button>-->
@@ -129,7 +134,7 @@
 		<br>
 		<br>
 		<div class = "simpleUI" > 
-		<button class = "simpleUI" id ="simpleUIzero">Zero</button>
+		
 		<span id = "simpleHeightcm"></span><p>Cms</p>
 		<br>
 		<span id = "simpleHeightinches"></span><p>Inches</p>
@@ -158,15 +163,15 @@
 		</datalist>
 		<canvas class = "background" id="data-chart" width="400" height="200"></canvas>
 		<div>
-			<label>
+			<label class = "background">
 				<input class = "background" type="checkbox" id="toggle-distance" checked>
 					Show Distance
 					</label>
-            <label>
+            <label class = "background">
 				<input class = "background" type="checkbox" id="toggle-temperature" checked>
 					Show Temperature
 					</label>
-			<label>
+			<label class = "background">
 				<input class = "background" type="checkbox" id="toggle-battery" checked>
 					Show Battery
 					</label>
@@ -348,7 +353,7 @@
 				
 				websock.onclose = function(event) {
 						// Export data for all MAC addresses
-						exportAllData();
+						//exportAllData();
 						console.log('WebSocket closed:', event);
 						isConnected = false;
 						updateUI();
@@ -469,13 +474,7 @@
 		return myintview.getInt16(0,true);
 	}
 	
-	function ensureOnClickAttribute(element, handler) {
-			// Check if the element has an 'onclick' attribute
-			if (!element.hasAttribute('onclick')) {
-					// Assign the 'onclick' attribute with the provided handler
-					element.setAttribute('onclick', handler);
-			}
-	}
+
 	
 	function handleserverbinarydata(serverbinarydata){
 		/*// First 6 bytes = MAC Address , 0-6
@@ -504,7 +503,11 @@
 			handlecleanedupdata(mysendermacaddressclean,mydistance, mytemperature, mybatteryvoltage,getCurrentLocalTime());
 			const myElement = document.getElementById('simpleUIzero');
 			// Ensure the element has an 'onclick' attribute
-			ensureOnClickAttribute(myElement, tarescale(mysendermacaddressclean));
+			    // Check if the element has an 'onclick' attribute
+            if (!element.hasAttribute('onclick')) {
+        // Assign the 'onclick' attribute with the provided handler
+                element.setAttribute("onclick","tarescale('"+macaddr+"')");
+                    }
     
 	}
 	
