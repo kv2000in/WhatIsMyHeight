@@ -458,7 +458,7 @@
         2 bytes of temp 8-10
         and 2 bytes of batteryvoltage = total 12 bytes. 10-12
 Padded total 16 bytes.*/
-			console.log(serverbinarydata);
+			//console.log(serverbinarydata);
 			var mybinarydataarray= new Uint8Array(serverbinarydata);
 			var mysendermacaddress = mybinarydataarray.slice(0,6);
 			var mysendermacaddressclean = buf2hex(mysendermacaddress);
@@ -1013,7 +1013,7 @@ Padded total 16 bytes.*/
 			
 			for (const eachDataRow of myReadings[paramMacAddr]) 
 			{
-				text += `Timestamp: ${eachDataRow.timestamp}, Reading: ${eachDataRow.reading}, Battery: ${eachDataRow.battery}\n`; 
+				text += `Timestamp: ${eachDataRow.timestamp}, Distance: ${eachDataRow.distance}, Temperature: ${eachDataRow.temperature},Battery: ${eachDataRow.battery}\n`; 
 			}
 			
 			const blob = new Blob([text], { type: 'text/plain' });
@@ -1031,11 +1031,11 @@ Padded total 16 bytes.*/
 				console.error(`No data available for MAC Address: ${paramMacAddr}`);
 				return; // Exit the function if there's no data
 			}
-			let csv = 'Timestamp,Reading,Battery\n';
+			let csv = 'Timestamp,Distance,Temperature, Battery\n';
 			
 			for (const eachDataRow of myReadings[paramMacAddr]) 
 			{
-				csv += `${eachDataRow.timestamp},${eachDataRow.reading},${eachDataRow.battery}\n`;  
+				csv += `${eachDataRow.timestamp},${eachDataRow.distance},${eachDataRow.temperature},${eachDataRow.battery}\n`;  
 			}
 			const blob = new Blob([csv], { type: 'text/csv' });
 			const url = URL.createObjectURL(blob);
@@ -1075,16 +1075,19 @@ Padded total 16 bytes.*/
 					}
 					
 						// Process data points
-						const readingDataPoints = myReadings[paramMacAddr].map(eachDataRow => ({
+const distanceDataPoints = myReadings[paramMacAddr].map(eachDataRow => ({
 																							   x: new Date(eachDataRow.timestamp),
-																							   y: eachDataRow.reading
+																							   y: eachDataRow.distance
 																							   }));
 																							   
-																							   const batteryDataPoints = myReadings[paramMacAddr].map(eachDataRow => ({
+const batteryDataPoints = myReadings[paramMacAddr].map(eachDataRow => ({
 																																									  x: new Date(eachDataRow.timestamp),
 																																									  y: eachDataRow.battery
 																																									  }));
-																																									  
+const temperatureDataPoints = myReadings[paramMacAddr].map(eachDataRow => ({
+																																																											 x: new Date(eachDataRow.timestamp),
+																																																											 y: eachDataRow.temperature
+																																																											 }));
 																																										  // Destroy existing chart if it exists
 																																										  if (myChart) {
 																																											  myChart.destroy();
@@ -1096,12 +1099,16 @@ Padded total 16 bytes.*/
 																																																  data: {
 																																																  datasets: [
 																																																			 {
-																																																			 label: 'Reading',
-																																																			 data: readingDataPoints,
+																																																			 label: 'Distance',
+																																																			 data: distanceDataPoints,
 																																																			 borderColor: 'blue',
 																																																			 fill: false
 																																																			 },
-																																																			 {
+																																																			 label: 'Temperature',
+																																																			 data: temperatureDataPoints,
+																																																			 borderColor: 'green',
+																																																			 fill: false
+																																																			 },																													 {
 																																																			 label: 'Battery',
 																																																			 data: batteryDataPoints,
 																																																			 borderColor: 'red',
@@ -1276,16 +1283,19 @@ Padded total 16 bytes.*/
 																		  const ctx = document.getElementById('data-chart').getContext('2d');
 																		  
 																			  // Process data points
-																			  const readingDataPoints = data.map(eachDataRow => ({
+	const distanceDataPoints = data.map(eachDataRow => ({
 																																 x: new Date(eachDataRow.timestamp),
-																																 y: eachDataRow.reading
+																																 y: eachDataRow.distance
 																																 }));
 																																 
 																																 const batteryDataPoints = data.map(eachDataRow => ({
 																																													x: new Date(eachDataRow.timestamp),
 																																													y: eachDataRow.battery
 																																													}));
-																																													
+																																													const temperatureDataPoints = data.map(eachDataRow => ({
+																																																									   x: new Date(eachDataRow.timestamp),
+																																																									   y: eachDataRow.temperature
+																																																									   }));																																												
 																																														// Destroy existing chart if it exists
 																																														if (myChart) {
 																																															myChart.destroy();
@@ -1296,9 +1306,15 @@ Padded total 16 bytes.*/
 																																																				data: {
 																																																				datasets: [
 																																																						   {
-																																																						   label: 'Reading',
-																																																						   data: readingDataPoints,
+																																																						   label: 'Distance',
+																																																						   data: distanceDataPoints,
 																																																						   borderColor: 'blue',
+																																																						   fill: false
+																																																						   },
+																																																						   
+																																																						   label: 'Temperature',
+																																																						   data: temperatureDataPoints,
+																																																						   borderColor: 'green',
 																																																						   fill: false
 																																																						   },
 																																																						   {

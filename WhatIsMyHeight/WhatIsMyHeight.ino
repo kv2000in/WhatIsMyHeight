@@ -10,7 +10,7 @@ const char *ssid = "ESP";
 const char *password = "monte123";
 bool wsclientconnected  = false;
 unsigned long previousMillis = 0;
-unsigned long datasendinterval = 5000;
+unsigned long datasendinterval = 750;
 
 AsyncWebServer server(80);
 AsyncWebSocket webSocket("/ws"); 
