@@ -31,6 +31,9 @@
 									.td-hidden{
 										display: none;
 									}
+									.background{
+										display:none;
+									}
 									.td-actions{
 										visibility: visible;
 									}
@@ -110,27 +113,37 @@
 		
 		
 		<br>
-		<table id="sensortable">
-			<tr id = "tableheadings">
-				<td class = "td-hidden">MacAddr</td>
-				<td>Name</td>
-				<td class = "td-hidden">RawReading</td>
-				<td class = "td-hidden">CalibrationFactor</td>
-				<td>Height</td>
-				<td>Temp</td>
-				<td>Battery</td>
-				<td>Timestamp</td>
-				<td class = "td-actions">Actions</td>
+		<table  class = "background" id="sensortable">
+			<tr class = "background" id = "tableheadings">
+				<td class = "background" class = "td-hidden">MacAddr</td>
+				<td class = "background" >Name</td>
+				<td class = "background" class = "td-hidden">RawReading</td>
+				<td class = "background" class = "td-hidden">CalibrationFactor</td>
+				<td class = "background">Height</td>
+				<td class = "background">Temp</td>
+				<td class = "background">Battery</td>
+				<td class = "background">Timestamp</td>
+				<td class = "background" class = "td-actions">Actions</td>
 			</tr>
 		</table>
 		<br>
 		<br>
+		<div class = "simpleUI" > 
+		<button class = "simpleUI" id ="simpleUIzero">Zero</button>
+		<span id = "simpleHeightcm"></span><p>Cms</p>
+		<br>
+		<span id = "simpleHeightinches"></span><p>Inches</p>
+		<br>
+		<span id = "simpleHeightfeetinches"></span><p>F in</p>
+		<br>
+		
+		</div>
 		
 		<!--<input id="livesensornodes" list="availablesensors">-->
 		
-		<button id="export-text" disabled>Export as Text</button>
-		<button id="export-csv" disabled>Export as CSV</button>
-		<button id="plot-data" disabled>Plot Data</button>
+		<button class = "background" id="export-text" disabled>Export as Text</button>
+		<button class = "background" id="export-csv" disabled>Export as CSV</button>
+		<button class = "background" id="plot-data" disabled>Plot Data</button>
 		<!-- Modal -->
 		<div id="paramModal" style="display: none;">
 			<div id="modalContent">
@@ -143,24 +156,24 @@
 		<br><br>
 		<datalist id="availablesensors">
 		</datalist>
-		<canvas id="data-chart" width="400" height="200"></canvas>
+		<canvas class = "background" id="data-chart" width="400" height="200"></canvas>
 		<div>
 			<label>
-				<input type="checkbox" id="toggle-distance" checked>
+				<input class = "background" type="checkbox" id="toggle-distance" checked>
 					Show Distance
 					</label>
             <label>
-				<input type="checkbox" id="toggle-temperature" checked>
+				<input class = "background" type="checkbox" id="toggle-temperature" checked>
 					Show Temperature
 					</label>
 			<label>
-				<input type="checkbox" id="toggle-battery" checked>
+				<input class = "background" type="checkbox" id="toggle-battery" checked>
 					Show Battery
 					</label>
 		</div>
 		
-		<input type="file" id="upload-files" multiple accept=".txt">
-			<button id="process-files">Process Files</button>
+		<input class = "background" type="file" id="upload-files" multiple accept=".txt">
+			<button class = "background" id="process-files">Process Files</button>
 			</body>
 	
 	<script>
@@ -456,6 +469,14 @@
 		return myintview.getInt16(0,true);
 	}
 	
+	function ensureOnClickAttribute(element, handler) {
+			// Check if the element has an 'onclick' attribute
+			if (!element.hasAttribute('onclick')) {
+					// Assign the 'onclick' attribute with the provided handler
+					element.setAttribute('onclick', handler);
+			}
+	}
+	
 	function handleserverbinarydata(serverbinarydata){
 		/*// First 6 bytes = MAC Address , 0-6
 		 then 2 bytes of distance, 6-8
@@ -481,8 +502,11 @@
         
 			/*call the data handler routine*/
 			handlecleanedupdata(mysendermacaddressclean,mydistance, mytemperature, mybatteryvoltage,getCurrentLocalTime());
-
-    }
+			const myElement = document.getElementById('simpleUIzero');
+			// Ensure the element has an 'onclick' attribute
+			ensureOnClickAttribute(myElement, tarescale(mysendermacaddressclean));
+    
+	}
 	
 	/* https:/stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex*/
 	
@@ -494,8 +518,21 @@
 	
 	
 	
+	function cmToInches(cm) {
+    const conversionFactor = 0.393701;
+    const inches = cm * conversionFactor;
+    return Math.round(inches);
+}
 	
-	
+    function cmToFeetAndInches(cm) {
+    const conversionFactor = 0.393701;
+    const totalInches = cm * conversionFactor;
+
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round(totalInches % 12);
+
+    return `${feet}' ${inches}"`;
+}
 	
 	function handleZerodata(macaddr,zerorawreading,binarytimestamp,commonName){
 		
@@ -524,6 +561,10 @@
 							document.getElementById("distance" + macaddr).innerHTML = calculatedValue;
 							document.getElementById("temperature" + macaddr).innerHTML = mycurrentrawvalues[macaddr][1];
 							document.getElementById("battery" + macaddr).innerHTML = mycurrentrawvalues[macaddr][2];
+							document.getElementById("simpleHeightcm").innerHTML=calculatedValue;
+							document.getElementById("simpleHeightinches").innerHTML=cmToInches(calculatedValue);
+							document.getElementById("simpleHeightfeetinches").innerHTML=cmToFeetAndInches(calculatedValue);
+							
 		}
 	function handlecleanedupdata(macaddr,distance,temperature,batteryV,mytime){
 		/*create or update an entry in to the rawvalues dict and add the current values*/
@@ -572,6 +613,7 @@
 			/*Expand the sensortable to add another row with children whose id is assigned by concatenating macaddress*/
 			const neweletr=document.createElement("tr");
 			neweletr.setAttribute("id","row"+macaddr);
+			neweletr.setAttribute("class","background");
 			var mytable = document.getElementById("sensortable");
 			mytable.appendChild(neweletr);
 			var myrow = document.getElementById("row"+macaddr);
@@ -580,17 +622,20 @@
 			const neweletd1 = document.createElement("td");
 			neweletd1.setAttribute("id","addr"+macaddr);
 			neweletd1.setAttribute("class","td-hidden");
+			neweletd1.setAttribute("class","background");
 			myrow.appendChild(neweletd1);
 			document.getElementById("addr"+macaddr).innerHTML=macaddr;
 			
 			const neweletd2 = document.createElement("td");
 			neweletd2.setAttribute("id","nametd"+macaddr);
 			neweletd2.setAttribute("class","inputname");
+			neweletd2.setAttribute("class","background");
 			myrow.appendChild(neweletd2);
 			
 			const neweletd2a = document.createElement("div");
 			neweletd2a.setAttribute("id","divinput"+macaddr);
 			neweletd2a.setAttribute("class","input-container");
+			neweletd2a.setAttribute("class","background");
 			document.getElementById("nametd"+macaddr).appendChild(neweletd2a);
 			
 			const neweletd2ac = document.createElement("input");
@@ -598,47 +643,56 @@
 			neweletd2ac.setAttribute("name","row-select");
 			neweletd2ac.setAttribute("type","radio");
 			neweletd2ac.setAttribute("value",macaddr);
+			neweletd2ac.setAttribute("class","background");
 			document.getElementById("divinput"+macaddr).appendChild(neweletd2ac);
 			
 			const neweletd2aa = document.createElement("input");
 			neweletd2aa.setAttribute("id","nameinput"+macaddr);
 			neweletd2aa.setAttribute("class","inputname");
+			neweletd2aa.setAttribute("class","background");
 			document.getElementById("divinput"+macaddr).appendChild(neweletd2aa);
 			
 			const neweletd2ab = document.createElement("span");
 			neweletd2ab.setAttribute("id","nametooltip"+macaddr);
 			neweletd2ab.setAttribute("class","tooltip");
+			neweletd2ab.setAttribute("class","background");
 			document.getElementById("divinput"+macaddr).appendChild(neweletd2ab);
 			
 			
 			const neweletd3 = document.createElement("td");
 			neweletd3.setAttribute("id","rawreading"+macaddr);
 			neweletd3.setAttribute("class","td-hidden");
+			neweletd3.setAttribute("class","background");
 			myrow.appendChild(neweletd3);
 			
 			
 			const neweletd4 = document.createElement("td");
 			neweletd4.setAttribute("id","calibrationfactor"+macaddr);
 			neweletd4.setAttribute("class","td-hidden");
+			neweletd4.setAttribute("class","background");
 			myrow.appendChild(neweletd4);
 			
 			const neweletd5 = document.createElement("td");
 			neweletd5.setAttribute("id","distance"+macaddr);
+			neweletd5.setAttribute("class","background");
 			myrow.appendChild(neweletd5);
 			
 			
 			const neweletd6 = document.createElement("td");
 			neweletd6.setAttribute("id","temperature"+macaddr);
+			neweletd6.setAttribute("class","background");
 			myrow.appendChild(neweletd6);
 			
 			const neweletd7 = document.createElement("td");
 			neweletd7.setAttribute("id","battery"+macaddr);
+			neweletd7.setAttribute("class","background");
 			myrow.appendChild(neweletd7);
 			updateReading(macaddr);
 			
 			
 			const neweletd8 = document.createElement("td");
 			neweletd8.setAttribute("id","time"+macaddr);
+			neweletd8.setAttribute("class","background");
 			myrow.appendChild(neweletd8);
 			document.getElementById("time"+macaddr).innerHTML=mytime;
 			
@@ -646,6 +700,7 @@
 			const neweletd9 = document.createElement("td");
 			neweletd9.setAttribute("id","actions"+macaddr);
 			neweletd9.setAttribute("class","td-actions");
+			neweletd9.setAttribute("class","background");
 			myrow.appendChild(neweletd9);
 			
 			/*Actions Zero/Tare, Calibrate*/
@@ -653,12 +708,14 @@
 			neweletd9a.setAttribute("id","zero"+macaddr);
 			neweletd9a.innerHTML="Zero";
 			neweletd9a.setAttribute("onclick","tarescale('"+macaddr+"')");
+			neweletd9a.setAttribute("class","background");
 			document.getElementById("actions"+macaddr).appendChild(neweletd9a);
 			
 			const neweletd9b = document.createElement("button");
 			neweletd9b.setAttribute("id","calibrate"+macaddr);
 			neweletd9b.setAttribute("onclick","calibratescale('"+macaddr+"')");
 			neweletd9b.innerHTML="Calibrate";
+			neweletd9b.setAttribute("class","background");
 			document.getElementById("actions"+macaddr).appendChild(neweletd9b);
 			
 			

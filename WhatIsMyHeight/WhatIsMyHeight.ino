@@ -1,5 +1,7 @@
-/*Set Debug to Serial1 when flashing the sketch. Then all the os_printf will print to Serial1 which is GND to GND and USB-TTL RX to GPIO2 (Tx1)
-Initialize Serial but leave it alone in case toggling between Serial or SW Serial for data from US-100 
+/*Set Debug to Serial1 when flashing the sketch if want to Debug. Then all the os_printf will print to Serial1 which is GND to GND and USB-TTL RX to GPIO2 (Tx1)
+Initialize Serial but leave it alone in case toggling between Serial or SW Serial for data from US-100 .
+Both Serial and SW Serial giving accurate distance and temp readings
+FOR UPLOADING TO ESP8266 - USE A GOOD POWER SUPPLY ELSE RANDOM UPLOAD ERRORS
 */
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
